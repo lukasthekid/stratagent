@@ -18,8 +18,8 @@ class Settings(BaseSettings):
     api_port: int = 8000
     api_reload: bool = True
 
-    groq_api_key:str = None
-    pinecone_api_key:str = None
+    groq_api_key:str = "grq_xxxxxxx"
+    pinecone_api_key:str = "pc_xxxxxxx"
 
     # CORS (comma-separated list, e.g. "http://localhost:3000,https://app.example.com")
     cors_origins: str = "*"
