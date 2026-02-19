@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stratagent-api
+  labels:
+    app: stratagent-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stratagent-api
+  template:
+    metadata:
+      labels:
+        app: stratagent-api
+    spec:
+      containers:
+        - name: api
+          image: stratagent-api:latest
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stratagent-api
+spec:
+  selector:
+    app: stratagent-api
+  ports:
+    - port: 8000
+      targetPort: 8000
