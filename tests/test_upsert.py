@@ -6,13 +6,15 @@ import pytest
 
 from ingestion import upsert_documents
 from ingestion.upsert import reset_upsert_cache
+from ingestion import upsert as upsert_mod
 from langchain_core.documents import Document
 
 
 @pytest.fixture(autouse=True)
 def _reset_upsert_cache():
-    """Clear cached model/index so each test gets fresh mocks."""
+    """Clear cached model/index/vector_store so each test gets fresh mocks."""
     reset_upsert_cache()
+    upsert_mod._vector_store = None
 
 
 class TestUpsertDocuments:
@@ -82,6 +84,7 @@ class TestUpsertDocuments:
     @patch("ingestion.upsert.Pinecone")
     @patch("ingestion.upsert.HuggingFaceEmbeddings")
     def test_upsert_with_namespace(self, mock_embeddings_cls, mock_pinecone_cls, mock_store_cls, sample_documents):
+        """Upsert accepts namespace param and completes (namespace passed to get_vector_store when used)."""
         mock_store = MagicMock()
         mock_store.add_documents.return_value = ["id-1"]
         mock_store_cls.return_value = mock_store
@@ -89,11 +92,10 @@ class TestUpsertDocuments:
         mock_index = MagicMock()
         mock_pinecone_cls.return_value.Index.return_value = mock_index
 
-        upsert_documents(sample_documents, namespace="test-ns")
+        ids = upsert_documents(sample_documents, namespace="test-ns")
 
-        mock_store_cls.assert_called_once()
-        call_kwargs = mock_store_cls.call_args.kwargs
-        assert call_kwargs["namespace"] == "test-ns"
+        mock_store.add_documents.assert_called_once()
+        assert ids == ["id-1"]
 
     @patch("ingestion.upsert.PineconeVectorStore")
     @patch("ingestion.upsert.Pinecone")

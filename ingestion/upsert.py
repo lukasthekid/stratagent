@@ -20,7 +20,7 @@ DEFAULT_CHUNK_OVERLAP = 50
 # Cached instances (reused across calls to avoid expensive model load and connection setup)
 _embedding_model: HuggingFaceEmbeddings | None = None
 _pinecone_index: Any = None
-
+_vector_store: PineconeVectorStore | None = None
 
 def _get_embedding_model() -> HuggingFaceEmbeddings:
     """Lazy-load and cache the embedding model (avoids ~10–30s load per call)."""
@@ -47,6 +47,20 @@ def _get_pinecone_index():
         )
         _pinecone_index = pc.Index(name=settings.pinecone_index_name)
     return _pinecone_index
+
+def get_vector_store(namespace:str = None) -> PineconeVectorStore:
+    global _vector_store
+    if _vector_store is None:
+        model = _get_embedding_model()
+        index = _get_pinecone_index()
+
+        store_kwargs: dict[str, Any] = {"embedding": model, "index": index}
+        if namespace is not None:
+            store_kwargs["namespace"] = namespace
+        _vector_store = PineconeVectorStore(**store_kwargs)
+
+    return _vector_store
+
 
 
 def reset_upsert_cache() -> None:
@@ -103,15 +117,9 @@ def upsert_documents(
     chunks = text_splitter.split_documents(documents)
     logger.info("Split into %d chunk(s)", len(chunks))
 
-    model = _get_embedding_model()
-    index = _get_pinecone_index()
+    storage = get_vector_store()
 
-    store_kwargs: dict[str, Any] = {"embedding": model, "index": index}
-    if namespace is not None:
-        store_kwargs["namespace"] = namespace
-    vectorstore = PineconeVectorStore(**store_kwargs)
-
-    ids = vectorstore.add_documents(
+    ids = storage.add_documents(
         documents=chunks,
         batch_size=batch_size,
         embedding_chunk_size=embedding_chunk_size,

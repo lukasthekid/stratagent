@@ -7,11 +7,15 @@ from langchain_core.documents import Document
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
+# Use project fixtures dir to avoid tmp_path PermissionError on Windows
+FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
+
 
 @pytest.fixture
-def sample_pdf_path(tmp_path: Path) -> Path:
+def sample_pdf_path() -> Path:
     """Create a minimal PDF with extractable text for testing."""
-    pdf_path = tmp_path / "sample.pdf"
+    FIXTURES_DIR.mkdir(exist_ok=True)
+    pdf_path = FIXTURES_DIR / "sample.pdf"
     c = canvas.Canvas(str(pdf_path), pagesize=letter)
     c.drawString(100, 750, "Annual Report 2024")
     c.drawString(100, 730, "Acme Corporation")
@@ -24,9 +28,10 @@ def sample_pdf_path(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def sample_csv_path(tmp_path: Path) -> Path:
+def sample_csv_path() -> Path:
     """Create a sample financial CSV for testing."""
-    csv_path = tmp_path / "financials.csv"
+    FIXTURES_DIR.mkdir(exist_ok=True)
+    csv_path = FIXTURES_DIR / "financials.csv"
     csv_path.write_text(
         "date,revenue,net_income,total_assets,total_liabilities\n"
         "2024-01-01,1000000,150000,5000000,2000000\n"

@@ -27,7 +27,13 @@ class Settings(BaseSettings):
     groq_api_key: str = "grq_xxxxxxx"
     pinecone_api_key: str = "pc_xxxxxxx"
     pinecone_index_name: str = "stratagent"
+    tavily_api_key:str = "tvly-xxxxxxxxx"
     embedding_model: str = "sentence-transformers/all-MiniLM-L12-v2"
+    reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    llm_model:str="groq/meta-llama/llama-4-scout-17b-16e-instruct"
+    # Retrieval tuning: vector search candidates, final reranked count
+    retrieval_top_k: int = 100
+    rerank_top_k: int = 10
     # Upsert tuning: embedding batch (HuggingFace), Pinecone upsert batch, pool threads
     embedding_batch_size: int = 64
     upsert_batch_size: int = 64

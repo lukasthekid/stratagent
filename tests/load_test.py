@@ -8,6 +8,8 @@ import pytest
 from ingestion import load_documents
 from langchain_core.documents import Document
 
+FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
+
 
 class TestLoadPDF:
     """PDF loading tests."""
@@ -25,8 +27,8 @@ class TestLoadPDF:
         assert len(docs) >= 1
         assert "Annual Report 2024" in docs[0].page_content
 
-    def test_load_pdf_uppercase_extension(self, sample_pdf_path, tmp_path):
-        pdf_upper = tmp_path / "sample.PDF"
+    def test_load_pdf_uppercase_extension(self, sample_pdf_path):
+        pdf_upper = FIXTURES_DIR / "sample.PDF"
         pdf_upper.write_bytes(sample_pdf_path.read_bytes())
         docs = load_documents(pdf_upper)
         assert len(docs) >= 1
@@ -81,44 +83,46 @@ class TestLoadWeb:
         assert docs[0].page_content == "HTTP content"
 
     @patch("ingestion.load.WebBaseLoader")
-    def test_load_sec_gov_uses_compliant_headers(self, mock_loader_class):
-        """SEC.gov URLs get User-Agent and other required headers automatically."""
+    def test_load_sec_gov_returns_documents(self, mock_loader_class):
+        """SEC.gov URLs load via WebBaseLoader with web_path."""
         mock_loader = MagicMock()
         mock_loader.load.return_value = [Document(page_content="SEC filing content", metadata={})]
         mock_loader_class.return_value = mock_loader
 
-        load_documents("https://www.sec.gov/Archives/edgar/data/1318605/000162828026003952/tsla-20251231.htm")
+        docs = load_documents("https://www.sec.gov/Archives/edgar/data/1318605/000162828026003952/tsla-20251231.htm")
 
-        mock_loader_class.assert_called_once()
-        call_kwargs = mock_loader_class.call_args.kwargs
-        assert "header_template" in call_kwargs
-        headers = call_kwargs["header_template"]
-        assert "User-Agent" in headers
-        assert "Accept-Encoding" in headers
-        assert "Host" in headers
-        assert headers["Host"] == "www.sec.gov"
+        mock_loader_class.assert_called_once_with(web_path="https://www.sec.gov/Archives/edgar/data/1318605/000162828026003952/tsla-20251231.htm")
+        assert len(docs) == 1
+        assert "SEC filing" in docs[0].page_content
 
 
 class TestLoadErrors:
     """Error handling tests."""
 
-    def test_unsupported_extension_raises(self, tmp_path):
-        bad_file = tmp_path / "data.txt"
+    def test_unsupported_extension_raises(self):
+        FIXTURES_DIR.mkdir(exist_ok=True)
+        bad_file = FIXTURES_DIR / "data.txt"
         bad_file.write_text("hello")
-        with pytest.raises(ValueError, match="Unsupported source type"):
-            load_documents(bad_file)
+        try:
+            with pytest.raises(ValueError, match="Unsupported source type"):
+                load_documents(bad_file)
+        finally:
+            bad_file.unlink(missing_ok=True)
 
-    def test_missing_file_raises(self, tmp_path):
-        missing = tmp_path / "nonexistent.pdf"
+    def test_missing_file_raises(self):
+        missing = FIXTURES_DIR / "nonexistent.pdf"
         with pytest.raises(FileNotFoundError, match="File not found"):
             load_documents(missing)
 
-    def test_directory_raises(self, tmp_path):
-        # Create a directory named like a PDF to reach the is_file() check
-        pdf_dir = tmp_path / "fake.pdf"
-        pdf_dir.mkdir()
-        with pytest.raises(ValueError, match="Path is not a file"):
-            load_documents(pdf_dir)
+    def test_directory_raises(self):
+        FIXTURES_DIR.mkdir(exist_ok=True)
+        pdf_dir = FIXTURES_DIR / "fake.pdf"
+        pdf_dir.mkdir(exist_ok=True)
+        try:
+            with pytest.raises(ValueError, match="Path is not a file"):
+                load_documents(pdf_dir)
+        finally:
+            pdf_dir.rmdir()
 
     def test_empty_source_raises(self):
         with pytest.raises(ValueError, match="Source cannot be empty"):

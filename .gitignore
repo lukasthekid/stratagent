@@ -51,6 +51,10 @@ coverage.xml
 .pytest_cache/
 cover/
 
+# Test fixtures (generated at runtime)
+tests/fixtures/*
+!tests/fixtures/.gitkeep
+
 # Translations
 *.mo
 *.pot
