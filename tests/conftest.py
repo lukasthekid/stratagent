@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+from langchain_core.documents import Document
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
@@ -37,28 +38,14 @@ def sample_csv_path(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def sample_csv_with_nulls(tmp_path: Path) -> Path:
-    """Create CSV with empty/NaN values for schema validation tests."""
-    csv_path = tmp_path / "partial.csv"
-    csv_path.write_text(
-        "date,revenue,net_income\n"
-        "2024-01-01,1000,\n"
-        "2024-02-01,,200\n"
-        "2024-03-01,1500,300\n",
-        encoding="utf-8",
-    )
-    return csv_path
-
-
-@pytest.fixture
-def invalid_csv_schema() -> type:
-    """Pydantic schema that will fail validation (requires non-null revenue)."""
-
-    from pydantic import BaseModel
-
-    class StrictFinancialRow(BaseModel):
-        date: str
-        revenue: float  # No Optional - must be present
-        net_income: float
-
-    return StrictFinancialRow
+def sample_documents() -> list[Document]:
+    return [
+        Document(
+            page_content="Dogs are great companions, known for their loyalty and friendliness.",
+            metadata={"source": "mammal-pets-doc"},
+        ),
+        Document(
+            page_content="Cats are independent pets that often enjoy their own space.",
+            metadata={"source": "mammal-pets-doc"},
+        ),
+    ]
