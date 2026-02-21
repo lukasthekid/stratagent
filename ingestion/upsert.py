@@ -4,10 +4,9 @@ import logging
 from typing import Any
 
 from langchain_core.documents import Document
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_pinecone import PineconeVectorStore
+from langchain_pinecone import PineconeVectorStore, PineconeEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from pinecone import Pinecone
+from pinecone import Pinecone, ServerlessSpec
 import torch
 
 from config.settings import settings
@@ -18,21 +17,17 @@ DEFAULT_CHUNK_SIZE = 512
 DEFAULT_CHUNK_OVERLAP = 50
 
 # Cached instances (reused across calls to avoid expensive model load and connection setup)
-_embedding_model: HuggingFaceEmbeddings | None = None
+_embedding_model: PineconeEmbeddings | None = None
 _pinecone_index: Any = None
 _vector_store: PineconeVectorStore | None = None
 
-def _get_embedding_model() -> HuggingFaceEmbeddings:
+def _get_embedding_model() -> PineconeEmbeddings:
     """Lazy-load and cache the embedding model (avoids ~10–30s load per call)."""
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print("Using device:", device)
-
     global _embedding_model
     if _embedding_model is None:
-        _embedding_model = HuggingFaceEmbeddings(
-            model_kwargs={"device": device},
-            model_name=settings.embedding_model,
-            query_encode_kwargs={"batch_size": settings.embedding_batch_size},
+        _embedding_model = PineconeEmbeddings(
+            model=settings.embedding_model,
+            pinecone_api_key=settings.pinecone_api_key,
         )
     return _embedding_model
 
@@ -45,7 +40,16 @@ def _get_pinecone_index():
             api_key=settings.pinecone_api_key,
             pool_threads=settings.pinecone_pool_threads,
         )
-        _pinecone_index = pc.Index(name=settings.pinecone_index_name)
+
+        index_name = settings.pinecone_index_name
+        #create the Index
+        if index_name not in pc.list_indexes().names():
+            pc.create_index(name=index_name,
+                            dimension=settings.embedding_dimensions,
+                            metric="cosine",
+                            spec=ServerlessSpec(cloud="aws", region="us-east-1")
+                            )
+        _pinecone_index = pc.Index(name=index_name)
     return _pinecone_index
 
 def get_vector_store(namespace:str = None) -> PineconeVectorStore:

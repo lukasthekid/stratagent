@@ -33,12 +33,8 @@ dependencies = [
     "torchvision>=0.25.0",
     "flagembedding>=1.3.5",
     "huggingface-hub[hf-xet]>=0.36.2",
-    "crewai>=1.6.1",
-    "crewai-tools>=1.6.1",
-    "tavily-python>=0.7.21",
-    "langchain-groq>=1.1.2",
-    "litellm>=1.0.0",
-    "groq>=0.37.1",
+    "google-generativeai>=0.8.6",
+    "google-cloud-aiplatform>=1.138.0",
 ]
 
 [project.optional-dependencies]

@@ -7,6 +7,7 @@ from agents.research_agent import create_research_agent
 from agents.schemas import StrategicBrief
 from agents.synthesis_agent import create_synthesis_agent
 from agents.tasks import create_financial_task, create_research_task, create_synthesis_task
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -52,11 +53,18 @@ class StratAgentCrew:
         )
 
         crew = Crew(
-            agents=[self.research_agent, self.financial_agent, self.synthesis_agent],
-            tasks=[research_task, financial_task, synthesis_task],
-            process=Process.sequential,
+            agents = [self.research_agent, self.financial_agent, self.synthesis_agent],
+            tasks = [research_task, financial_task, synthesis_task],
+            process= Process.sequential,
             verbose=True,
             memory=True,
+            embedder={
+                "provider": "google-generativeai",
+                "config": {
+                    "model_name": "gemini-embedding-001",
+                    "api_key": settings.gemini_api_key,
+                },
+            },
             max_rpm=30,
         )
 

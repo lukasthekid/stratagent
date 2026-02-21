@@ -20,20 +20,24 @@ class Settings(BaseSettings):
     )
 
     # API
-    api_host: str = "0.0.0.0"
+    api_host: str = "localhost"
     api_port: int = 8000
     api_reload: bool = True
 
     groq_api_key: str = "grq_xxxxxxx"
     pinecone_api_key: str = "pc_xxxxxxx"
+    gemini_api_key:str = "gemini_xxxxxxx"
     pinecone_index_name: str = "stratagent"
     tavily_api_key:str = "tvly-xxxxxxxxx"
-    embedding_model: str = "sentence-transformers/all-MiniLM-L12-v2"
+    embedding_model: str = "llama-text-embed-v2"
+    embedding_dimensions: int = 1024
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     llm_model:str="groq/meta-llama/llama-4-scout-17b-16e-instruct"
     # Retrieval tuning: vector search candidates, final reranked count
-    retrieval_top_k: int = 100
-    rerank_top_k: int = 10
+    retrieval_top_k: int = 20
+    rerank_top_k: int = 5
+    retriever_threshold: float = 0.5
+    reranker_threshold: float = 0.3
     # Upsert tuning: embedding batch (HuggingFace), Pinecone upsert batch, pool threads
     embedding_batch_size: int = 64
     upsert_batch_size: int = 64

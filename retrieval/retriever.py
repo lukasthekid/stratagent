@@ -16,19 +16,22 @@ logger = logging.getLogger(__name__)
 _reranker: FlagReranker | None = None
 
 
+import threading
+_reranker_lock = threading.Lock()
+
 def _get_reranker() -> FlagReranker:
-    """Lazy-load and cache the reranker model."""
     global _reranker
     if _reranker is None:
-        logger.info("Loading reranker model: %s", settings.reranker_model)
-        _reranker = FlagReranker(settings.reranker_model, use_fp16=True)
+        with _reranker_lock:
+            if _reranker is None:  # double-checked locking
+                _reranker = FlagReranker(settings.reranker_model, use_fp16=True)
     return _reranker
 
 
 def reset_retriever_cache() -> None:
-    """Clear cached reranker. Use in tests or when settings change."""
     global _reranker
-    _reranker = None
+    with _reranker_lock:
+        _reranker = None
 
 
 def _vector_search(
@@ -38,7 +41,9 @@ def _vector_search(
 ) -> list[Document]:
     """Internal: perform vector similarity search."""
     store = get_vector_store(namespace=namespace)
-    return store.similarity_search(query, k=k)
+    results = store.similarity_search_with_score(query, k=k)
+    candidates = [doc for doc, score in results if score >= settings.retriever_threshold]  # cosine threshold
+    return candidates
 
 
 def _unpack_retriever_input(input: str | dict) -> tuple[str, int | None, str | None]:
@@ -116,7 +121,12 @@ def rerank(
 
     docs_with_scores = list(zip(documents, scores))
     reranked = sorted(docs_with_scores, key=lambda x: x[1], reverse=True)
-    top_docs = [d for d, _ in reranked[:k]]
+    top_docs = []
+    for doc, score in reranked[:k]:
+        #relevance threshold
+        if score > settings.reranker_threshold:
+            doc.metadata["rerank_score"] = round(score, 4)
+            top_docs.append(doc)
 
     logger.debug("Reranked %d documents to top %d", len(documents), k)
     return top_docs

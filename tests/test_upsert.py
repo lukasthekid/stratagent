@@ -22,7 +22,7 @@ class TestUpsertDocuments:
 
     @patch("ingestion.upsert.PineconeVectorStore")
     @patch("ingestion.upsert.Pinecone")
-    @patch("ingestion.upsert.HuggingFaceEmbeddings")
+    @patch("ingestion.upsert.PineconeEmbeddings")
     def test_upsert_returns_ids(self, mock_embeddings_cls, mock_pinecone_cls, mock_store_cls, sample_documents):
         mock_store = MagicMock()
         mock_store.add_documents.return_value = ["id-1", "id-2", "id-3"]
@@ -41,7 +41,7 @@ class TestUpsertDocuments:
 
     @patch("ingestion.upsert.PineconeVectorStore")
     @patch("ingestion.upsert.Pinecone")
-    @patch("ingestion.upsert.HuggingFaceEmbeddings")
+    @patch("ingestion.upsert.PineconeEmbeddings")
     def test_upsert_chunks_documents(self, mock_embeddings_cls, mock_pinecone_cls, mock_store_cls, sample_documents):
         mock_store = MagicMock()
         mock_store.add_documents.return_value = []
@@ -62,7 +62,7 @@ class TestUpsertDocuments:
 
     @patch("ingestion.upsert.PineconeVectorStore")
     @patch("ingestion.upsert.Pinecone")
-    @patch("ingestion.upsert.HuggingFaceEmbeddings")
+    @patch("ingestion.upsert.PineconeEmbeddings")
     def test_upsert_uses_settings(self, mock_embeddings_cls, mock_pinecone_cls, mock_store_cls, sample_documents):
         mock_store = MagicMock()
         mock_store.add_documents.return_value = ["id-1"]
@@ -75,14 +75,15 @@ class TestUpsertDocuments:
 
         mock_embeddings_cls.assert_called_once()
         call_kwargs = mock_embeddings_cls.call_args.kwargs
-        assert "model_name" in call_kwargs
+        assert "model" in call_kwargs
+        assert "pinecone_api_key" in call_kwargs
 
         mock_pinecone_cls.assert_called_once()
         assert "api_key" in mock_pinecone_cls.call_args.kwargs
 
     @patch("ingestion.upsert.PineconeVectorStore")
     @patch("ingestion.upsert.Pinecone")
-    @patch("ingestion.upsert.HuggingFaceEmbeddings")
+    @patch("ingestion.upsert.PineconeEmbeddings")
     def test_upsert_with_namespace(self, mock_embeddings_cls, mock_pinecone_cls, mock_store_cls, sample_documents):
         """Upsert accepts namespace param and completes (namespace passed to get_vector_store when used)."""
         mock_store = MagicMock()
@@ -99,7 +100,7 @@ class TestUpsertDocuments:
 
     @patch("ingestion.upsert.PineconeVectorStore")
     @patch("ingestion.upsert.Pinecone")
-    @patch("ingestion.upsert.HuggingFaceEmbeddings")
+    @patch("ingestion.upsert.PineconeEmbeddings")
     def test_upsert_single_document(self, mock_embeddings_cls, mock_pinecone_cls, mock_store_cls):
         docs = [Document(page_content="Single doc.", metadata={"source": "single"})]
         mock_store = MagicMock()

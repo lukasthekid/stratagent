@@ -31,14 +31,17 @@ class TestRetriever:
     def test_retriever_returns_documents(
         self, mock_get_store: MagicMock, sample_retrieved_docs: list[Document]
     ) -> None:
-        """Retriever returns documents from vector store."""
+        """Retriever returns documents from vector store (similarity_search_with_score, score >= 0.6)."""
         mock_store = MagicMock()
-        mock_store.similarity_search.return_value = sample_retrieved_docs
+        # similarity_search_with_score returns [(doc, score), ...]; scores must be >= 0.6
+        mock_store.similarity_search_with_score.return_value = [
+            (d, 0.9) for d in sample_retrieved_docs
+        ]
         mock_get_store.return_value = mock_store
 
         result = retriever.invoke({"query": "pet animals", "k": 10})
 
-        mock_store.similarity_search.assert_called_once_with("pet animals", k=10)
+        mock_store.similarity_search_with_score.assert_called_once_with("pet animals", k=10)
         assert result == sample_retrieved_docs
         assert len(result) == 3
 
@@ -46,20 +49,20 @@ class TestRetriever:
     def test_retriever_uses_settings_default_k(self, mock_get_store: MagicMock) -> None:
         """Retriever uses settings.retrieval_top_k when k not provided."""
         mock_store = MagicMock()
-        mock_store.similarity_search.return_value = []
+        mock_store.similarity_search_with_score.return_value = []
         mock_get_store.return_value = mock_store
 
         with patch("retrieval.retriever.settings") as mock_settings:
             mock_settings.retrieval_top_k = 50
             retriever.invoke({"query": "test"})
 
-        mock_store.similarity_search.assert_called_once_with("test", k=50)
+        mock_store.similarity_search_with_score.assert_called_once_with("test", k=50)
 
     @patch("retrieval.retriever.get_vector_store")
     def test_retriever_with_namespace(self, mock_get_store: MagicMock) -> None:
         """Retriever passes namespace to get_vector_store."""
         mock_store = MagicMock()
-        mock_store.similarity_search.return_value = []
+        mock_store.similarity_search_with_score.return_value = []
         mock_get_store.return_value = mock_store
 
         retriever.invoke({"query": "test", "namespace": "my-ns"})
@@ -133,9 +136,9 @@ class TestRerank:
     def test_rerank_k_exceeds_docs_returns_all(
         self, mock_get_reranker: MagicMock, sample_retrieved_docs: list[Document]
     ) -> None:
-        """Rerank with k > len(docs) returns all docs."""
+        """Rerank with k > len(docs) returns all docs (scores must be > 0.3 to pass threshold)."""
         mock_reranker = MagicMock()
-        mock_reranker.compute_score.return_value = [0.5, 0.3, 0.7]
+        mock_reranker.compute_score.return_value = [0.5, 0.4, 0.7]  # all > 0.3
         mock_get_reranker.return_value = mock_reranker
 
         result = rerank("query", sample_retrieved_docs, k=10)
@@ -154,9 +157,12 @@ class TestRetrieveWithRerank:
         mock_rerank: MagicMock,
         sample_retrieved_docs: list[Document],
     ) -> None:
-        """Full pipeline: vector search then rerank."""
+        """Full pipeline: vector search (similarity_search_with_score) then rerank."""
         mock_store = MagicMock()
-        mock_store.similarity_search.return_value = sample_retrieved_docs
+        # similarity_search_with_score returns [(doc, score), ...]; scores >= 0.6
+        mock_store.similarity_search_with_score.return_value = [
+            (d, 0.9) for d in sample_retrieved_docs
+        ]
         mock_get_store.return_value = mock_store
 
         top_two = sample_retrieved_docs[:2]
@@ -166,7 +172,7 @@ class TestRetrieveWithRerank:
             {"query": "pet animals", "retrieval_k": 50, "rerank_k": 2}
         )
 
-        mock_store.similarity_search.assert_called_once_with("pet animals", k=50)
+        mock_store.similarity_search_with_score.assert_called_once_with("pet animals", k=50)
         mock_rerank.assert_called_once_with(
             "pet animals", sample_retrieved_docs, k=2
         )
@@ -178,7 +184,7 @@ class TestRetrieveWithRerank:
     ) -> None:
         """When no candidates found, returns empty list."""
         mock_store = MagicMock()
-        mock_store.similarity_search.return_value = []
+        mock_store.similarity_search_with_score.return_value = []
         mock_get_store.return_value = mock_store
 
         result = retrieve_with_rerank.invoke({"query": "obscure query"})
