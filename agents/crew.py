@@ -2,11 +2,11 @@ import logging
 
 from crewai import Crew, Process
 
-from agents.financial_agent import create_financial_agent
+from agents.critic_agent import create_critic_agent
 from agents.research_agent import create_research_agent
 from agents.schemas import StrategicBrief
 from agents.synthesis_agent import create_synthesis_agent
-from agents.tasks import create_financial_task, create_research_task, create_synthesis_task
+from agents.tasks import create_research_task, create_synthesis_task, create_critic_task
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -40,22 +40,22 @@ def _extract_strategic_brief(result) -> StrategicBrief:
 class StratAgentCrew:
     def __init__(self):
         self.research_agent = create_research_agent()
-        self.financial_agent = create_financial_agent()
+        self.critic_agent = create_critic_agent()
         self.synthesis_agent = create_synthesis_agent()
 
     def run(self, company: str, question: str) -> StrategicBrief:
         logger.info("Starting StratAgent analysis for %s", company)
 
         research_task = create_research_task(self.research_agent, company, question)
-        financial_task = create_financial_task(self.financial_agent, company, research_task)
+        critic_task = create_critic_task(self.critic_agent, company, question, research_task)
         synthesis_task = create_synthesis_task(
-            self.synthesis_agent, company, question, research_task, financial_task
+            self.synthesis_agent, company, question, research_task, critic_task
         )
 
         crew = Crew(
-            agents = [self.research_agent, self.financial_agent, self.synthesis_agent],
-            tasks = [research_task, financial_task, synthesis_task],
-            process= Process.sequential,
+            agents=[self.research_agent, self.critic_agent, self.synthesis_agent],
+            tasks=[research_task, critic_task, synthesis_task],
+            process=Process.sequential,
             verbose=True,
             memory=True,
             embedder={

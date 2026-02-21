@@ -28,21 +28,6 @@ def sample_pdf_path() -> Path:
 
 
 @pytest.fixture
-def sample_csv_path() -> Path:
-    """Create a sample financial CSV for testing."""
-    FIXTURES_DIR.mkdir(exist_ok=True)
-    csv_path = FIXTURES_DIR / "financials.csv"
-    csv_path.write_text(
-        "date,revenue,net_income,total_assets,total_liabilities\n"
-        "2024-01-01,1000000,150000,5000000,2000000\n"
-        "2024-02-01,1200000,180000,5200000,2100000\n"
-        "2024-03-01,1100000,165000,5100000,2050000\n",
-        encoding="utf-8",
-    )
-    return csv_path
-
-
-@pytest.fixture
 def sample_documents() -> list[Document]:
     return [
         Document(

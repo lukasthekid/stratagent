@@ -50,8 +50,8 @@ async def health_check() -> dict:
     response_model=StrategicBrief,
     tags=["Analysis"],
     summary="Run full agent analysis",
-    description="Triggers a full multi-agent run: research, financial analysis, and strategic synthesis. "
-    "Returns a StrategicBrief with executive summary, SWOT, risks, and recommendations.",
+    description="Triggers a full multi-agent run: research and strategic synthesis. "
+    "Returns a StrategicBrief with executive summary, SWOT, risks, recommendations, and caveats.",
 )
 def analyse(request: AnalyseRequest) -> StrategicBrief:
     """Run full agent analysis for a company and strategic query."""
@@ -67,10 +67,10 @@ def analyse(request: AnalyseRequest) -> StrategicBrief:
     response_model=IngestResponse,
     tags=["Ingestion"],
     summary="Upload files to vector storage",
-    description="Upload PDF or CSV files. Documents are chunked, embedded, and stored in Pinecone.",
+    description="Upload PDF files. Documents are chunked, embedded, and stored in Pinecone.",
 )
 async def ingest_upload(
-    files: list[UploadFile] = File(..., description="PDF or CSV files to ingest"),
+    files: list[UploadFile] = File(..., description="PDF files to ingest"),
 ) -> IngestResponse:
     """Upload one or more files and ingest them into the vector store."""
     if not files:
@@ -84,7 +84,7 @@ async def ingest_upload(
         if suffix not in SUPPORTED_EXTENSIONS:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unsupported file type: {suffix or 'unknown'}. Supported: .pdf, .csv",
+                detail=f"Unsupported file type: {suffix or 'unknown'}. Supported: .pdf",
             )
 
     for upload in files:

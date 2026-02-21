@@ -35,25 +35,6 @@ class TestLoadPDF:
         assert "Annual Report 2024" in docs[0].page_content
 
 
-class TestLoadCSV:
-    """CSV loading tests."""
-
-    def test_load_csv_returns_documents(self, sample_csv_path):
-        docs = load_documents(sample_csv_path)
-        assert len(docs) == 3  # 3 data rows
-        content = " ".join(d.page_content for d in docs)
-        assert "2024-01-01" in content
-        assert "revenue" in content.lower() or "1000000" in content
-
-    def test_load_csv_with_path_object(self, sample_csv_path):
-        docs = load_documents(Path(sample_csv_path))
-        assert len(docs) >= 1
-
-    def test_load_csv_custom_encoding(self, sample_csv_path):
-        docs = load_documents(sample_csv_path, csv_encoding="utf-8")
-        assert len(docs) >= 1
-
-
 class TestLoadWeb:
     """Web URL loading tests (mocked to avoid network)."""
 

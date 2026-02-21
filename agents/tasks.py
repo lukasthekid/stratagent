@@ -1,5 +1,5 @@
 from crewai import Task
-from agents.schemas import ResearchFindings, FinancialAnalysis, StrategicBrief
+from agents.schemas import ResearchFindings, StrategicBrief, CritiqueReport
 
 
 def create_research_task(agent, company: str, question: str) -> Task:
@@ -35,56 +35,67 @@ def create_research_task(agent, company: str, question: str) -> Task:
     )
 
 
-def create_financial_task(agent, company: str, research_task) -> Task:
+def create_critic_task(agent, company: str, question: str, research_task) -> Task:
     return Task(
         description=f"""
-        Perform a rigorous financial analysis of {company} using the research findings provided
-        and your own document retrieval.
+        You have received research findings about {company} in response to this question:
+        "{question}"
 
-        You must analyze:
-        1. Revenue and profit trends over the last 3 years
-        2. Key financial ratios: gross margin, net margin, debt-to-equity, current ratio
-        3. YoY growth rates for revenue, EBITDA, and free cash flow
-        4. Capital allocation strategy (R&D spend, capex, buybacks)
-        5. Financial risks and red flags
+        Your job is to critically review these findings across four dimensions:
 
-        RULES:
-        - Use the Financial Calculator Tool for every ratio and growth rate — never estimate
-        - Retrieve raw financial data from documents before calculating
-        - Flag any inconsistencies in the data
-        - If data is unavailable, state this explicitly rather than guessing
+        1. EVIDENCE QUALITY — Which claims are well-supported? Which are asserted without 
+           strong evidence? Flag any statistics or facts that seem unverified.
+
+        2. GAPS — What important aspects of the question were NOT addressed by the research?
+           What would a skeptical executive ask that the research can't currently answer?
+
+        3. COUNTERARGUMENTS — What is the strongest case AGAINST the research's implied 
+           conclusions? Search the web if needed to find opposing viewpoints or contradicting data.
+
+        4. RISKS & ASSUMPTIONS — What assumptions is the research implicitly making? 
+           What would have to be true for the conclusions to be wrong?
+
+        Be direct and specific. Do not soften your critique to be polite.
         """,
         expected_output="""
-        A structured financial analysis in JSON format covering:
-        - revenue_trend: narrative description
-        - profit_margins: current margins with context
-        - key_ratios: dictionary of ratio names to values
-        - growth_rates: dictionary of metric names to YoY growth rates
-        - financial_risks: list of identified risks
-        - financial_summary: 1-paragraph executive summary
+        A structured critique containing:
+        - well_supported_claims: list of findings that are strongly evidenced
+        - weak_or_unsupported_claims: list of findings that need stronger backing
+        - gaps: list of important topics the research missed
+        - counterarguments: list of opposing viewpoints or contradicting evidence
+        - key_assumptions: list of implicit assumptions in the research
+        - overall_research_quality: "Strong" / "Adequate" / "Weak" with 1-sentence justification
         """,
         agent=agent,
-        output_pydantic=FinancialAnalysis,
+        output_pydantic=CritiqueReport,
         context=[research_task],
     )
 
 
-def create_synthesis_task(agent, company: str, question: str, research_task, financial_task) -> Task:
+def create_synthesis_task(
+    agent, company: str, question: str, research_task, critic_task
+) -> Task:
     return Task(
         description=f"""
-        You have received research findings and financial analysis for {company}.
-        Your job is to synthesize these into a definitive strategic brief that answers:
+        You have received research findings and a critical review for {company}.
+        Your job is to synthesize both into a definitive strategic brief that answers:
         "{question}"
+
+        The critical review identifies gaps, weak evidence, counterarguments, and assumptions.
+        Use it to strengthen your brief: address gaps in your recommendations, incorporate
+        counterarguments into strategic risks, and adjust confidence based on evidence quality.
 
         Your brief must include:
         1. A 3-sentence executive summary that directly answers the question
         2. A rigorous SWOT analysis (3-5 points per quadrant, no generic filler)
         3. The top 3-5 strategic risks, ranked by likelihood × impact
         4. 3-5 specific, actionable recommendations with rationale
-        5. An overall confidence assessment (High/Medium/Low) with justification
+        5. Caveats: limitations, data gaps, assumptions, or disclaimers the reader should know
+        6. An overall confidence assessment (High/Medium/Low) with justification
 
         RULES:
-        - Every point in the SWOT must be grounded in the research or financial findings
+        - Every point in the SWOT must be grounded in the research findings
+        - Incorporate the critique: address gaps, factor in counterarguments, reflect evidence quality
         - Recommendations must be specific — avoid vague statements like "invest in innovation"
         - The executive summary must be written for a CEO, not an analyst
         - Flag any areas where data quality was poor
@@ -92,5 +103,5 @@ def create_synthesis_task(agent, company: str, question: str, research_task, fin
         expected_output="A complete StrategicBrief object with all fields populated.",
         agent=agent,
         output_pydantic=StrategicBrief,
-        context=[research_task, financial_task],  # Receives both prior outputs
+        context=[research_task, critic_task],
     )

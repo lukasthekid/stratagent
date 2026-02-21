@@ -6,16 +6,15 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-from langchain_community.document_loaders import CSVLoader, PyPDFLoader, WebBaseLoader
+from langchain_community.document_loaders import PyPDFLoader, WebBaseLoader
 from langchain_core.documents import Document
 
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-CSV_EXTENSIONS = {".csv"}
 PDF_EXTENSIONS = {".pdf"}
-SUPPORTED_EXTENSIONS = PDF_EXTENSIONS | CSV_EXTENSIONS
+SUPPORTED_EXTENSIONS = PDF_EXTENSIONS
 
 USER_AGENT = os.getenv("USER_AGENT")
 
@@ -23,19 +22,16 @@ USER_AGENT = os.getenv("USER_AGENT")
 def load_documents(
     source: str | Path,
     *,
-    csv_encoding: str = "utf-8",
     web_headers: dict[str, str] | None = None,
 ) -> list[Document]:
     """Load documents from a file path or URL.
 
     Supports:
         - PDF files (.pdf)
-        - CSV files (.csv)
         - Web pages (http:// or https:// URLs)
 
     Args:
         source: File path (str or Path) or URL to load from.
-        csv_encoding: Character encoding for CSV files. Defaults to utf-8.
         web_headers: Optional HTTP headers for web requests (e.g. User-Agent).
             For sec.gov, compliant headers are used by default.
 
@@ -66,7 +62,7 @@ def load_documents(
     if suffix not in SUPPORTED_EXTENSIONS:
         raise ValueError(
             f"Unsupported source type: {suffix or repr(source_str[:50])}. "
-            f"Supported: .pdf, .csv, or http(s) URLs."
+            f"Supported: .pdf or http(s) URLs."
         )
 
     if not path.exists():
@@ -77,12 +73,8 @@ def load_documents(
 
     logger.info("Loading %s: %s", suffix, path)
 
-    if suffix in PDF_EXTENSIONS:
-        loader = PyPDFLoader(file_path=path)
-        docs = loader.load()
-    else:
-        loader = CSVLoader(file_path=path, encoding=csv_encoding)
-        docs = loader.load()
+    loader = PyPDFLoader(file_path=path)
+    docs = loader.load()
 
     logger.info("Loaded %d document(s) from %s", len(docs), path.name)
     return docs

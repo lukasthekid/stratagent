@@ -6,7 +6,6 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from agents.schemas import (
-    FinancialAnalysis,
     ResearchFindings,
     StrategicBrief,
     SWOTAnalysis,
@@ -41,14 +40,6 @@ def test_analyse_accepts_valid_request() -> None:
             market_context="",
             confidence_score=0.9,
         ),
-        financial_analysis=FinancialAnalysis(
-            revenue_trend="",
-            profit_margins="",
-            key_ratios={},
-            growth_rates={},
-            financial_risks=[],
-            financial_summary="",
-        ),
         swot=SWOTAnalysis(
             strengths=[],
             weaknesses=[],
@@ -57,6 +48,7 @@ def test_analyse_accepts_valid_request() -> None:
         ),
         strategic_risks=[],
         recommendations=[],
+        caveats=[],
         confidence_level="High",
     )
     with patch("api.main.StratAgentCrew") as MockCrew:

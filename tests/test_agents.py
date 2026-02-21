@@ -8,17 +8,17 @@ from langchain_core.documents import Document
 from pydantic import ValidationError
 
 from agents.crew import StratAgentCrew, _extract_strategic_brief
-from agents.financial_agent import create_financial_agent
+from agents.critic_agent import create_critic_agent
 from agents.research_agent import create_research_agent
 from agents.schemas import (
-    FinancialAnalysis,
+    CritiqueReport,
     ResearchFindings,
     StrategicBrief,
     SWOTAnalysis,
 )
 from agents.synthesis_agent import create_synthesis_agent
 from agents.tasks import (
-    create_financial_task,
+    create_critic_task,
     create_research_task,
     create_synthesis_task,
 )
@@ -84,21 +84,32 @@ class TestResearchFindings:
             )
 
 
-class TestFinancialAnalysis:
-    """Tests for FinancialAnalysis schema."""
+class TestCritiqueReport:
+    """Tests for CritiqueReport schema."""
 
-    def test_valid_financial_analysis(self) -> None:
-        analysis = FinancialAnalysis(
-            revenue_trend="Growing",
-            profit_margins="Stable at 15%",
-            key_ratios={"gross_margin": "45%", "net_margin": "12%"},
-            growth_rates={"revenue": "8%", "ebitda": "10%"},
-            financial_risks=["Debt levels rising"],
-            financial_summary="Solid performance.",
+    def test_valid_critique_report(self) -> None:
+        report = CritiqueReport(
+            well_supported_claims=["Revenue grew 15% YoY per 10-K"],
+            weak_or_unsupported_claims=["Market share estimate"],
+            gaps=["Competitor pricing strategy"],
+            counterarguments=["Bear case: margin compression risk"],
+            key_assumptions=["Industry growth continues at 5%"],
+            overall_research_quality="Adequate",
         )
-        assert analysis.revenue_trend == "Growing"
-        assert "gross_margin" in analysis.key_ratios
-        assert len(analysis.financial_risks) == 1
+        assert len(report.well_supported_claims) == 1
+        assert len(report.gaps) == 1
+        assert report.overall_research_quality == "Adequate"
+
+    def test_empty_lists_allowed(self) -> None:
+        report = CritiqueReport(
+            well_supported_claims=[],
+            weak_or_unsupported_claims=[],
+            gaps=[],
+            counterarguments=[],
+            key_assumptions=[],
+            overall_research_quality="Weak",
+        )
+        assert report.overall_research_quality == "Weak"
 
 
 class TestSWOTAnalysis:
@@ -129,14 +140,6 @@ class TestStrategicBrief:
                 market_context="",
                 confidence_score=0.8,
             ),
-            financial_analysis=FinancialAnalysis(
-                revenue_trend="Up",
-                profit_margins="15%",
-                key_ratios={},
-                growth_rates={},
-                financial_risks=[],
-                financial_summary="Good.",
-            ),
             swot=SWOTAnalysis(
                 strengths=[],
                 weaknesses=[],
@@ -145,6 +148,7 @@ class TestStrategicBrief:
             ),
             strategic_risks=["Risk 1"],
             recommendations=["Rec 1"],
+            caveats=[],
             confidence_level="High",
         )
         assert brief.company == "Acme"
@@ -356,19 +360,18 @@ class TestAgentCreation:
         assert "Document Retrieval Tool" in tool_names
         assert "Web Search Tool" in tool_names
 
-    @patch("agents.financial_agent.settings")
-    def test_create_financial_agent(self, mock_settings: MagicMock) -> None:
+    @patch("agents.critic_agent.settings")
+    def test_create_critic_agent(self, mock_settings: MagicMock) -> None:
         mock_settings.llm_model = "groq/llama"
         mock_settings.groq_api_key = "test-key"
 
-        agent = create_financial_agent()
+        agent = create_critic_agent()
 
         assert isinstance(agent, Agent)
-        assert "Financial" in agent.role
-        assert len(agent.tools) == 2
+        assert "Critical" in agent.role or "Reviewer" in agent.role
+        assert len(agent.tools) == 1
         tool_names = [t.name for t in agent.tools]
-        assert "Document Retrieval Tool" in tool_names
-        assert "Financial Calculator Tool" in tool_names
+        assert "Web Search Tool" in tool_names
 
     @patch("agents.synthesis_agent.settings")
     def test_create_synthesis_agent(self, mock_settings: MagicMock) -> None:
@@ -404,52 +407,54 @@ class TestTaskCreation:
         assert task.agent == agent
         assert task.output_pydantic == ResearchFindings
 
-    @patch("agents.financial_agent.settings")
+    @patch("agents.critic_agent.settings")
     @patch("agents.research_agent.settings")
-    def test_create_financial_task(
+    def test_create_critic_task(
         self,
         mock_research_settings: MagicMock,
-        mock_financial_settings: MagicMock,
+        mock_critic_settings: MagicMock,
     ) -> None:
-        mock_research_settings.llm_model = mock_financial_settings.llm_model = "groq/llama"
-        mock_research_settings.groq_api_key = mock_financial_settings.groq_api_key = "key"
+        mock_research_settings.llm_model = mock_critic_settings.llm_model = "groq/llama"
+        mock_research_settings.groq_api_key = mock_critic_settings.groq_api_key = "key"
         research_agent = create_research_agent()
-        financial_agent = create_financial_agent()
+        critic_agent = create_critic_agent()
         research_task = create_research_task(research_agent, "Acme", "Q?")
 
-        task = create_financial_task(financial_agent, "Acme Corp", research_task)
+        task = create_critic_task(critic_agent, "Acme Corp", "Strategic outlook?", research_task)
 
         assert isinstance(task, Task)
         assert "Acme Corp" in task.description
+        assert "Strategic outlook" in task.description
         assert task.context == [research_task]
-        assert task.output_pydantic == FinancialAnalysis
+        assert task.output_pydantic == CritiqueReport
 
     @patch("agents.synthesis_agent.settings")
-    @patch("agents.financial_agent.settings")
+    @patch("agents.critic_agent.settings")
     @patch("agents.research_agent.settings")
     def test_create_synthesis_task(
         self,
         mock_research_settings: MagicMock,
-        mock_financial_settings: MagicMock,
+        mock_critic_settings: MagicMock,
         mock_synthesis_settings: MagicMock,
     ) -> None:
-        for m in (mock_research_settings, mock_financial_settings, mock_synthesis_settings):
+        for m in (mock_research_settings, mock_critic_settings, mock_synthesis_settings):
             m.llm_model = "groq/llama"
             m.groq_api_key = "key"
         research_agent = create_research_agent()
-        financial_agent = create_financial_agent()
+        critic_agent = create_critic_agent()
         synthesis_agent = create_synthesis_agent()
         research_task = create_research_task(research_agent, "Acme", "Q?")
-        financial_task = create_financial_task(financial_agent, "Acme", research_task)
+        critic_task = create_critic_task(critic_agent, "Acme", "Q?", research_task)
 
         task = create_synthesis_task(
-            synthesis_agent, "Acme Corp", "Strategic outlook?", research_task, financial_task
+            synthesis_agent, "Acme Corp", "Strategic outlook?", research_task, critic_task
         )
 
         assert isinstance(task, Task)
         assert "Acme Corp" in task.description
         assert "Strategic outlook" in task.description
-        assert task.context == [research_task, financial_task]
+        assert "critical review" in task.description.lower()
+        assert task.context == [research_task, critic_task]
         assert task.output_pydantic == StrategicBrief
 
 
@@ -469,14 +474,6 @@ def _make_sample_brief() -> StrategicBrief:
             market_context="",
             confidence_score=0.8,
         ),
-        financial_analysis=FinancialAnalysis(
-            revenue_trend="Up",
-            profit_margins="15%",
-            key_ratios={},
-            growth_rates={},
-            financial_risks=[],
-            financial_summary="Good.",
-        ),
         swot=SWOTAnalysis(
             strengths=[],
             weaknesses=[],
@@ -485,6 +482,7 @@ def _make_sample_brief() -> StrategicBrief:
         ),
         strategic_risks=[],
         recommendations=[],
+        caveats=[],
         confidence_level="High",
     )
 
@@ -556,21 +554,21 @@ class TestStratAgentCrew:
     """Tests for StratAgentCrew."""
 
     @patch("agents.crew.create_synthesis_task")
-    @patch("agents.crew.create_financial_task")
+    @patch("agents.crew.create_critic_task")
     @patch("agents.crew.create_research_task")
     @patch("agents.crew.Crew")
     def test_run_returns_strategic_brief(
         self,
         mock_crew_cls: MagicMock,
         mock_create_research_task: MagicMock,
-        mock_create_financial_task: MagicMock,
+        mock_create_critic_task: MagicMock,
         mock_create_synthesis_task: MagicMock,
     ) -> None:
         mock_research_task = MagicMock()
-        mock_financial_task = MagicMock()
+        mock_critic_task = MagicMock()
         mock_synthesis_task = MagicMock()
         mock_create_research_task.return_value = mock_research_task
-        mock_create_financial_task.return_value = mock_financial_task
+        mock_create_critic_task.return_value = mock_critic_task
         mock_create_synthesis_task.return_value = mock_synthesis_task
 
         mock_crew_instance = MagicMock()
@@ -585,9 +583,54 @@ class TestStratAgentCrew:
 
         assert result == brief
         assert result.company == brief.company
-        mock_create_research_task.assert_called_once()
-        mock_create_financial_task.assert_called_once()
-        mock_create_synthesis_task.assert_called_once()
+        mock_create_research_task.assert_called_once_with(
+            crew.research_agent, "Acme Corp", "Growth outlook?"
+        )
+        mock_create_critic_task.assert_called_once_with(
+            crew.critic_agent, "Acme Corp", "Growth outlook?", mock_research_task
+        )
+        mock_create_synthesis_task.assert_called_once_with(
+            crew.synthesis_agent,
+            "Acme Corp",
+            "Growth outlook?",
+            mock_research_task,
+            mock_critic_task,
+        )
         mock_crew_instance.kickoff.assert_called_once_with(
             inputs={"company": "Acme Corp", "question": "Growth outlook?"}
         )
+
+    @patch("agents.crew.create_synthesis_task")
+    @patch("agents.crew.create_critic_task")
+    @patch("agents.crew.create_research_task")
+    @patch("agents.crew.Crew")
+    def test_run_creates_crew_with_correct_agents_and_tasks(
+        self,
+        mock_crew_cls: MagicMock,
+        mock_create_research_task: MagicMock,
+        mock_create_critic_task: MagicMock,
+        mock_create_synthesis_task: MagicMock,
+    ) -> None:
+        mock_research_task = MagicMock()
+        mock_critic_task = MagicMock()
+        mock_synthesis_task = MagicMock()
+        mock_create_research_task.return_value = mock_research_task
+        mock_create_critic_task.return_value = mock_critic_task
+        mock_create_synthesis_task.return_value = mock_synthesis_task
+
+        mock_crew_instance = MagicMock()
+        brief = _make_sample_brief()
+        mock_result = MagicMock()
+        mock_result.pydantic = brief
+        mock_crew_instance.kickoff.return_value = mock_result
+        mock_crew_cls.return_value = mock_crew_instance
+
+        crew = StratAgentCrew()
+        crew.run(company="TestCo", question="What are the risks?")
+
+        mock_crew_cls.assert_called_once()
+        call_kwargs = mock_crew_cls.call_args.kwargs
+        assert call_kwargs["agents"] == [crew.research_agent, crew.critic_agent, crew.synthesis_agent]
+        assert call_kwargs["tasks"] == [mock_research_task, mock_critic_task, mock_synthesis_task]
+        # Process.sequential is an enum; check it was passed
+        assert call_kwargs["process"] is not None

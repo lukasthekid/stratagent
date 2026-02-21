@@ -16,7 +16,7 @@ def create_synthesis_agent() -> Agent:
     return Agent(
         role="Principal Strategy Consultant",
         goal=(
-            "Synthesize all research and financial findings into a crisp, actionable strategic brief. "
+            "Synthesize research findings and critical review into a crisp, actionable strategic brief. "
             "Produce a structured SWOT analysis and clear recommendations that a C-suite executive "
             "can act on immediately. Prioritize insight over information."
         ),
