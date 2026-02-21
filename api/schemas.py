@@ -1,6 +1,45 @@
 """API request and response schemas."""
 
+from enum import Enum
+
 from pydantic import BaseModel, Field
+
+
+class JobStatus(str, Enum):
+    """Status of an analysis job."""
+
+    pending = "pending"
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+
+
+class AnalysisRequest(BaseModel):
+    """Request body for POST /analyze."""
+
+    company: str = Field(..., description="Company name", examples=["Tesla"])
+    question: str = Field(
+        ...,
+        description="Strategic question to answer",
+        examples=["What are Tesla's biggest strategic risks in 2025?"],
+    )
+
+
+class JobResponse(BaseModel):
+    """Response for POST /analyze (job submitted)."""
+
+    job_id: str
+    status: JobStatus
+    message: str
+
+
+class JobStatusResponse(BaseModel):
+    """Response for GET /jobs/{job_id}."""
+
+    job_id: str
+    status: JobStatus
+    result: dict | None = None
+    error: str | None = None
 
 
 class AnalyseRequest(BaseModel):

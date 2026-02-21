@@ -16,7 +16,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from agents.crew import StratAgentCrew
 from agents.schemas import StrategicBrief
-from api.schemas import AnalyseRequest, IngestResponse, IngestUrlRequest
+from api.routes.analysis import router as analysis_router
+from api.schemas import (
+    AnalyseRequest,
+    IngestResponse,
+    IngestUrlRequest,
+)
 from config import settings
 from ingestion.load import SUPPORTED_EXTENSIONS, load_documents
 from ingestion.upsert import upsert_documents
@@ -32,11 +37,19 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(analysis_router)
+
+
+@app.get("/")
+def root() -> dict:
+    """Welcome message."""
+    return {"message": "Welcome to Stratagent API"}
 
 
 @app.get("/health")

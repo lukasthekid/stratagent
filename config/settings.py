@@ -36,8 +36,8 @@ class Settings(BaseSettings):
     # Retrieval tuning: vector search candidates, final reranked count
     retrieval_top_k: int = 20
     rerank_top_k: int = 5
-    retriever_threshold: float = 0.5
-    reranker_threshold: float = 0.3
+    retriever_threshold: float = 0.0
+    reranker_threshold: float = 0.0
     # Upsert tuning: embedding batch (HuggingFace), Pinecone upsert batch, pool threads
     embedding_batch_size: int = 64
     upsert_batch_size: int = 64
