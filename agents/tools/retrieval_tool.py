@@ -2,6 +2,7 @@ from crewai.tools import BaseTool
 from langchain_core.documents import Document
 from pydantic import BaseModel, Field
 
+from config import settings
 from retrieval import retrieve_with_rerank
 
 
@@ -22,7 +23,11 @@ class RetrievalTool(BaseTool):
     def _run(self, query: str) -> str:
         try:
             results: list[Document] = retrieve_with_rerank.invoke(
-                {"query": query, "retrieval_k": 50, "rerank_k": 5}
+                {
+                    "query": query,
+                    "retrieval_k": settings.retrieval_top_k,
+                    "rerank_k": settings.rerank_top_k,
+                }
             )
         except Exception as e:
             return f"Retrieval error: {e}. Try rephrasing your query or check that the document database is populated."

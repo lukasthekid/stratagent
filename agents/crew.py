@@ -1,5 +1,6 @@
 import logging
 
+import mlflow
 from crewai import Crew, Process
 
 from agents.critic_agent import create_critic_agent
@@ -46,29 +47,49 @@ class StratAgentCrew:
     def run(self, company: str, question: str) -> StrategicBrief:
         logger.info("Starting StratAgent analysis for %s", company)
 
-        research_task = create_research_task(self.research_agent, company, question)
-        critic_task = create_critic_task(self.critic_agent, company, question, research_task)
-        synthesis_task = create_synthesis_task(
-            self.synthesis_agent, company, question, research_task, critic_task
-        )
+        mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
+        exp = mlflow.get_experiment_by_name(settings.mlflow_experiment_name)
+        if exp is None:
+            mlflow.create_experiment(settings.mlflow_experiment_name)
+        mlflow.set_experiment(settings.mlflow_experiment_name)
 
-        crew = Crew(
-            agents=[self.research_agent, self.critic_agent, self.synthesis_agent],
-            tasks=[research_task, critic_task, synthesis_task],
-            process=Process.sequential,
-            verbose=True,
-            memory=True,
-            embedder={
-                "provider": "google-generativeai",
-                "config": {
-                    "model_name": "gemini-embedding-001",
-                    "api_key": settings.gemini_api_key,
+        with mlflow.start_run(run_name=f"{company}"):
+            mlflow.log_params({
+                "company": company,
+                "model": settings.llm_model,
+                "retrieval_k": str(settings.retrieval_top_k),
+                "rerank_k": str(settings.rerank_top_k),
+                "chunk_size": str(settings.chunk_size),
+            })
+
+            research_task = create_research_task(self.research_agent, company, question)
+            critic_task = create_critic_task(self.critic_agent, company, question, research_task)
+            synthesis_task = create_synthesis_task(
+                self.synthesis_agent, company, question, research_task, critic_task
+            )
+
+            crew = Crew(
+                agents=[self.research_agent, self.critic_agent, self.synthesis_agent],
+                tasks=[research_task, critic_task, synthesis_task],
+                process=Process.sequential,
+                verbose=True,
+                memory=True,
+                embedder={
+                    "provider": "google-generativeai",
+                    "config": {
+                        "model_name": "gemini-embedding-001",
+                        "api_key": settings.gemini_api_key,
+                    },
                 },
-            },
-            max_rpm=30,
-        )
+                max_rpm=30,
+            )
 
-        result = crew.kickoff(inputs={"company": company, "question": question})
+            result = crew.kickoff(inputs={"company": company, "question": question})
+            brief = _extract_strategic_brief(result)
+
+            conf_map = {"high": 1.0, "medium": 0.5, "low": 0.0}
+            cl = brief.confidence_level.lower() if brief.confidence_level else "medium"
+            mlflow.log_metric("confidence_level", conf_map.get(cl, 0.5))
 
         logger.info("Analysis complete for %s", company)
-        return _extract_strategic_brief(result)
+        return brief

@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     rerank_top_k: int = 5
     retriever_threshold: float = 0.0
     reranker_threshold: float = 0.0
+    # Chunk size for document ingestion (characters)
+    chunk_size: int = 512
     # Upsert tuning: embedding batch (HuggingFace), Pinecone upsert batch, pool threads
     embedding_batch_size: int = 64
     upsert_batch_size: int = 64
@@ -52,6 +54,10 @@ class Settings(BaseSettings):
         if self.cors_origins.strip() == "*":
             return ["*"]
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    # MLflow experiment tracking (logs each crew run)
+    mlflow_tracking_uri: str = "file:./mlruns"
+    mlflow_experiment_name: str = "stratagent-crew"
 
     # Environment
     env: str = "development"

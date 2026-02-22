@@ -25,6 +25,7 @@ from agents.tasks import (
 from agents.tools.calculator_tool import FinancialCalculatorTool
 from agents.tools.retrieval_tool import RetrievalTool
 from agents.tools.search_tool import WebSearchTool
+from config import settings
 
 
 # ---------------------------------------------------------------------------
@@ -206,7 +207,11 @@ class TestRetrievalTool:
         result = tool._run(query="pet animals")
 
         mock_retrieve.invoke.assert_called_once_with(
-            {"query": "pet animals", "retrieval_k": 50, "rerank_k": 5}
+            {
+                "query": "pet animals",
+                "retrieval_k": settings.retrieval_top_k,
+                "rerank_k": settings.rerank_top_k,
+            }
         )
         assert "Dogs are great companions" in result
         assert "Source: mammal-pets-doc" in result
