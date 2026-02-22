@@ -1,7 +1,7 @@
 """RAG retriever with vector search and optional reranking."""
 
 import logging
-from typing import Any
+import threading
 
 from FlagEmbedding import FlagReranker
 from langchain_core.documents import Document
@@ -14,9 +14,6 @@ logger = logging.getLogger(__name__)
 
 # Lazy-loaded reranker (avoids expensive model load at import time)
 _reranker: FlagReranker | None = None
-
-
-import threading
 _reranker_lock = threading.Lock()
 
 def _get_reranker() -> FlagReranker:

@@ -1,5 +1,4 @@
 from crewai import Agent, LLM
-from langchain_groq import ChatGroq
 
 from agents.tools.retrieval_tool import RetrievalTool
 from agents.tools.search_tool import WebSearchTool

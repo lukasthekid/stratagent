@@ -1,5 +1,4 @@
 from crewai import Agent, LLM
-from langchain_groq import ChatGroq
 
 from config import settings
 

@@ -99,7 +99,7 @@ def run_analysis(company: str, question: str) -> dict | None:
             status_container.error(f"Analysis failed: {data.get('error', 'Unknown error')}")
             return None
 
-        status_container.info(f"Running analysis… Research → Critique → Synthesis")
+        status_container.info("Running analysis… Research → Critique → Synthesis")
         time.sleep(poll_interval)
 
     status_container.error("Analysis timed out.")

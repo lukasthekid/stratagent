@@ -22,7 +22,7 @@ def create_research_task(agent, company: str, question: str) -> Task:
         - If you cannot find evidence for a claim, say so explicitly
         - Do not hallucinate statistics
         """,
-        expected_output=f"""
+        expected_output="""
         A structured research report in JSON format matching this schema:
         - company: company name
         - key_facts: list of 8-12 verified facts with sources

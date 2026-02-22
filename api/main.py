@@ -1,15 +1,12 @@
 """FastAPI application entry point."""
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import logging
 import tempfile
 from pathlib import Path
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    force=True,
-)
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,6 +22,13 @@ from api.schemas import (
 from config import settings
 from ingestion.load import SUPPORTED_EXTENSIONS, load_documents
 from ingestion.upsert import upsert_documents
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    force=True,
+)
 
 app = FastAPI(
     title="Stratagent API",

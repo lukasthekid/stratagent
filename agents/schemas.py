@@ -1,5 +1,6 @@
+from typing import Any, List
+
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional, Any
 
 class ResearchFindings(BaseModel):
     company: str

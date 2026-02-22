@@ -1,7 +1,6 @@
 from crewai import Agent, LLM
-from agents.tools.search_tool import WebSearchTool
-import os
 
+from agents.tools.search_tool import WebSearchTool
 from config import settings
 
 

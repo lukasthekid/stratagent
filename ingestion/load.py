@@ -2,21 +2,14 @@
 
 import logging
 from pathlib import Path
-import os
-from dotenv import load_dotenv
-load_dotenv()
 
 from langchain_community.document_loaders import PyPDFLoader, WebBaseLoader
 from langchain_core.documents import Document
-
-from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
 PDF_EXTENSIONS = {".pdf"}
 SUPPORTED_EXTENSIONS = PDF_EXTENSIONS
-
-USER_AGENT = os.getenv("USER_AGENT")
 
 
 def load_documents(
