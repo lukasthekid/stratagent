@@ -106,9 +106,7 @@ async def ingest_upload(
 
     for upload in files:
         suffix = Path(upload.filename or "").suffix.lower()
-        with tempfile.NamedTemporaryFile(
-            suffix=suffix, delete=False, delete_on_close=False
-        ) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
             content = await upload.read()
             tmp.write(content)
             tmp_path = Path(tmp.name)
