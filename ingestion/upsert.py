@@ -7,7 +7,6 @@ from langchain_core.documents import Document
 from langchain_pinecone import PineconeVectorStore, PineconeEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pinecone import Pinecone, ServerlessSpec
-import torch
 
 from config.settings import settings
 
