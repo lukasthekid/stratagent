@@ -154,6 +154,39 @@ class TestStrategicBrief:
         assert brief.company == "Acme"
         assert brief.confidence_level == "High"
 
+    def test_strategic_risks_coerces_dict_to_string(self) -> None:
+        """LLM may return strategic_risks as dicts with 'risk' key; validator extracts string."""
+        brief = StrategicBrief.model_validate(
+            {
+                "company": "Tesla",
+                "executive_summary": "Summary",
+                "research_findings": {
+                    "company": "Tesla",
+                    "key_facts": [],
+                    "sources": [],
+                    "market_context": "",
+                    "confidence_score": 0.8,
+                },
+                "swot": {
+                    "strengths": [],
+                    "weaknesses": [],
+                    "opportunities": [],
+                    "threats": [],
+                },
+                "strategic_risks": [
+                    {"risk": "Manufacturing challenges", "probability": 0.8, "impact": 0.9},
+                    {"risk": "Increasing capital intensity", "probability": 0.7, "impact": 0.8},
+                ],
+                "recommendations": [],
+                "caveats": [],
+                "confidence_level": "Medium",
+            }
+        )
+        assert brief.strategic_risks == [
+            "Manufacturing challenges",
+            "Increasing capital intensity",
+        ]
+
 
 # ---------------------------------------------------------------------------
 # Tools
