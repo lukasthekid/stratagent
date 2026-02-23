@@ -40,6 +40,11 @@ class JobStatusResponse(BaseModel):
     status: JobStatus
     result: dict | None = None
     error: str | None = None
+    # Progress fields (when status=running)
+    current_phase: str | None = None
+    current_agent: str | None = None
+    current_tool: str | None = None
+    progress_message: str | None = None
 
 
 class AnalyseRequest(BaseModel):

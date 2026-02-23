@@ -99,7 +99,20 @@ def run_analysis(company: str, question: str) -> dict | None:
             status_container.error(f"Analysis failed: {data.get('error', 'Unknown error')}")
             return None
 
-        status_container.info("Running analysis… Research → Critique → Synthesis")
+        # Show progress when available
+        phase = data.get("current_phase")
+        agent = data.get("current_agent")
+        tool = data.get("current_tool")
+        msg = data.get("progress_message")
+        if agent or phase:
+            display = f"**{agent or phase.title()}**"
+            if tool:
+                display += f" — using {tool}"
+            elif msg:
+                display += f" — {msg}"
+            status_container.info(display)
+        else:
+            status_container.info("Running analysis… Research → Critique → Synthesis")
         time.sleep(poll_interval)
 
     status_container.error("Analysis timed out.")

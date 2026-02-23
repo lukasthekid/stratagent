@@ -14,12 +14,17 @@ async def run_analysis(job_id: str, company: str, question: str) -> None:
     job_store[job_id]["status"] = "running"
     logger.info("Starting analysis for job_id={} company={}", job_id, company)
 
+    def on_progress(updates: dict) -> None:
+        if job_id in job_store:
+            job_store[job_id].update(updates)
+
     try:
         crew = StratAgentCrew()
         brief = await asyncio.to_thread(
             crew.run,
             company=company,
             question=question,
+            on_progress=on_progress,
         )
         job_store[job_id]["status"] = "completed"
         job_store[job_id]["result"] = brief.model_dump()

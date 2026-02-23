@@ -19,7 +19,15 @@ router = APIRouter(prefix="/analysis", tags=["analysis"])
 async def analyze(request: AnalysisRequest, background_tasks: BackgroundTasks) -> JobResponse:
     """Start an async analysis job and return job_id immediately."""
     job_id = str(uuid.uuid4())
-    job_store[job_id] = {"status": "pending", "result": None, "error": None}
+    job_store[job_id] = {
+        "status": "pending",
+        "result": None,
+        "error": None,
+        "current_phase": None,
+        "current_agent": None,
+        "current_tool": None,
+        "progress_message": None,
+    }
     background_tasks.add_task(run_analysis, job_id, request.company, request.question)
     return JobResponse(
         job_id=job_id,
@@ -44,6 +52,10 @@ def get_job_status(job_id: str) -> JobStatusResponse:
         status=JobStatus(j["status"]),
         result=j.get("result"),
         error=j.get("error"),
+        current_phase=j.get("current_phase"),
+        current_agent=j.get("current_agent"),
+        current_tool=j.get("current_tool"),
+        progress_message=j.get("progress_message"),
     )
 
 

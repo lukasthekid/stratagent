@@ -212,3 +212,4 @@ __marimo__/
 /ingestion/tsla_data.csv
 *.db
 /mlruns/
+/mlartifacts/
