@@ -1,13 +1,38 @@
-"""Analysis endpoints: async job submission and status."""
+"""Analysis endpoints: async job submission, sync analysis, and status."""
 
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
-from api.schemas import AnalysisRequest, JobResponse, JobStatus, JobStatusResponse
+from agents.crew import StratAgentCrew
+from agents.schemas import StrategicBrief
+from api.schemas import (
+    AnalyseRequest,
+    AnalysisRequest,
+    JobResponse,
+    JobStatus,
+    JobStatusResponse,
+)
 from api.worker.runner import job_store, run_analysis
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
+
+
+@router.post(
+    "/analyze-test",
+    response_model=StrategicBrief,
+    summary="Run synchronous analysis",
+    description="Runs full multi-agent analysis and waits for the result. "
+    "Returns a StrategicBrief with executive summary, SWOT, risks, recommendations, and caveats. "
+    "Use POST /analysis/analyze for async (non-blocking) analysis.",
+)
+def analyse(request: AnalyseRequest) -> StrategicBrief:
+    """Run full agent analysis synchronously. Blocks until complete."""
+    try:
+        crew = StratAgentCrew()
+        return crew.run(company=request.company, question=request.query)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post(

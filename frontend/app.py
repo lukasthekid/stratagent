@@ -14,47 +14,173 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS for a clean, modern look
+# Dark mode theme - modern, clean aesthetic
 st.markdown("""
 <style>
-    .stApp { max-width: 1200px; margin: 0 auto; }
-    .main-header { 
-        font-family: 'Georgia', serif; 
-        font-size: 2.2rem; 
-        font-weight: 600; 
-        color: #1a1a2e;
+    /* Base dark theme overrides */
+    .stApp {
+        background: linear-gradient(180deg, #0d1117 0%, #161b22 50%, #0d1117 100%);
+        max-width: 100%;
+    }
+    [data-testid="stHeader"] { background: rgba(13, 17, 23, 0.9); }
+    [data-testid="stToolbar"] { background: rgba(13, 17, 23, 0.95); }
+    
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #161b22 0%, #0d1117 100%);
+        border-right: 1px solid #21262d;
+    }
+    [data-testid="stSidebar"] .stMarkdown { color: #8b949e; }
+    
+    /* Main content area */
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 3rem;
+    }
+    
+    /* Typography */
+    .main-header {
+        font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+        font-size: 2.25rem;
+        font-weight: 700;
+        color: #f0f6fc;
+        letter-spacing: -0.02em;
         margin-bottom: 0.25rem;
     }
-    .sub-header { 
-        color: #4a4a6a; 
-        font-size: 1rem; 
-        margin-bottom: 2rem;
+    .sub-header {
+        color: #8b949e;
+        font-size: 1rem;
+        font-weight: 400;
+        margin-bottom: 2.5rem;
+        letter-spacing: 0.01em;
     }
+    
+    /* Section cards */
     .section-card {
-        background: linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%);
+        background: rgba(22, 27, 34, 0.8);
         border-radius: 12px;
         padding: 1.25rem 1.5rem;
         margin-bottom: 1rem;
-        border-left: 4px solid #5b7cff;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        border: 1px solid #30363d;
+        border-left: 4px solid #58a6ff;
     }
     .section-title {
         font-weight: 600;
-        color: #2d3748;
+        color: #c9d1d9;
         font-size: 1rem;
         margin-bottom: 0.5rem;
     }
-    .bullet-list { margin-left: 1rem; }
+    
+    /* Confidence badges */
     .confidence-badge {
         display: inline-block;
-        padding: 0.25rem 0.75rem;
+        padding: 0.35rem 0.9rem;
         border-radius: 9999px;
-        font-size: 0.85rem;
-        font-weight: 500;
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
     }
-    .confidence-high { background: #d4edda; color: #155724; }
-    .confidence-medium { background: #fff3cd; color: #856404; }
-    .confidence-low { background: #f8d7da; color: #721c24; }
+    .confidence-high { background: rgba(35, 134, 54, 0.25); color: #3fb950; border: 1px solid rgba(63, 185, 80, 0.3); }
+    .confidence-medium { background: rgba(210, 153, 34, 0.2); color: #d29922; border: 1px solid rgba(210, 153, 34, 0.3); }
+    .confidence-low { background: rgba(248, 81, 73, 0.2); color: #f85149; border: 1px solid rgba(248, 81, 73, 0.3); }
+    
+    /* Streamlit component overrides for dark mode */
+    .stTextInput input, .stTextArea textarea {
+        background: #161b22 !important;
+        color: #c9d1d9 !important;
+        border: 1px solid #30363d !important;
+        border-radius: 8px !important;
+    }
+    .stTextInput input:focus, .stTextArea textarea:focus {
+        border-color: #58a6ff !important;
+        box-shadow: 0 0 0 1px #58a6ff !important;
+    }
+    .stTextInput input::placeholder, .stTextArea textarea::placeholder {
+        color: #6e7681 !important;
+    }
+    
+    /* Buttons */
+    .stButton > button {
+        background: linear-gradient(135deg, #238636 0%, #2ea043 100%) !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        padding: 0.5rem 1.25rem !important;
+        transition: all 0.2s ease !important;
+    }
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #2ea043 0%, #3fb950 100%) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(46, 160, 67, 0.3) !important;
+    }
+    
+    /* Secondary buttons */
+    .stButton > button[kind="secondary"] {
+        background: #21262d !important;
+        color: #c9d1d9 !important;
+        border: 1px solid #30363d !important;
+    }
+    .stButton > button[kind="secondary"]:hover {
+        background: #30363d !important;
+        border-color: #484f58 !important;
+    }
+    
+    /* File uploader */
+    [data-testid="stFileUploader"] {
+        background: #161b22 !important;
+        border: 1px dashed #30363d !important;
+        border-radius: 8px !important;
+    }
+    
+    /* Dividers */
+    hr {
+        border-color: #21262d !important;
+        margin: 2rem 0 !important;
+    }
+    
+    /* Markdown text */
+    .stMarkdown, .stMarkdown p, .stMarkdown li {
+        color: #c9d1d9 !important;
+    }
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
+        color: #f0f6fc !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Code blocks */
+    code, .stCode {
+        background: #161b22 !important;
+        color: #79c0ff !important;
+        border: 1px solid #30363d !important;
+        border-radius: 6px !important;
+        padding: 0.2em 0.4em !important;
+    }
+    
+    /* Metric cards */
+    [data-testid="stMetricValue"] {
+        color: #58a6ff !important;
+        font-weight: 600 !important;
+    }
+    [data-testid="stMetricLabel"] {
+        color: #8b949e !important;
+    }
+    
+    /* Alerts / status messages */
+    .stAlert {
+        border-radius: 8px !important;
+        border: 1px solid #30363d !important;
+    }
+    [data-baseweb="notification"] {
+        background: #161b22 !important;
+        border: 1px solid #30363d !important;
+        color: #c9d1d9 !important;
+    }
+    
+    /* Spinner */
+    .stSpinner > div {
+        border-top-color: #58a6ff !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 

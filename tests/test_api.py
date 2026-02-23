@@ -23,13 +23,13 @@ def test_health_check() -> None:
 
 
 def test_analyse_validates_request_body() -> None:
-    """Test /analyse requires company and query."""
-    response = client.post("/analyse", json={})
+    """Test /analysis/analyze-test requires company and query."""
+    response = client.post("/analysis/analyze-test", json={})
     assert response.status_code == 422  # Validation error
 
 
 def test_analyse_accepts_valid_request() -> None:
-    """Test /analyse accepts valid request (mocked crew)."""
+    """Test /analysis/analyze-test accepts valid request (mocked crew)."""
     mock_brief = StrategicBrief(
         company="Acme Corp",
         executive_summary="Test summary",
@@ -51,10 +51,10 @@ def test_analyse_accepts_valid_request() -> None:
         caveats=[],
         confidence_level="High",
     )
-    with patch("api.main.StratAgentCrew") as MockCrew:
+    with patch("api.routes.analysis.StratAgentCrew") as MockCrew:
         MockCrew.return_value.run.return_value = mock_brief
         response = client.post(
-            "/analyse",
+            "/analysis/analyze-test",
             json={"company": "Acme Corp", "query": "What are the growth opportunities?"},
         )
     assert response.status_code == 200

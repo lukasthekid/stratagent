@@ -11,11 +11,8 @@ from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from agents.crew import StratAgentCrew
-from agents.schemas import StrategicBrief
 from api.routes.analysis import router as analysis_router
 from api.schemas import (
-    AnalyseRequest,
     IngestResponse,
     IngestUrlRequest,
 )
@@ -60,23 +57,6 @@ def root() -> dict:
 async def health_check() -> dict:
     """Health check endpoint."""
     return {"status": "ok"}
-
-
-@app.post(
-    "/analyse",
-    response_model=StrategicBrief,
-    tags=["Analysis"],
-    summary="Run full agent analysis",
-    description="Triggers a full multi-agent run: research and strategic synthesis. "
-    "Returns a StrategicBrief with executive summary, SWOT, risks, recommendations, and caveats.",
-)
-def analyse(request: AnalyseRequest) -> StrategicBrief:
-    """Run full agent analysis for a company and strategic query."""
-    try:
-        crew = StratAgentCrew()
-        return crew.run(company=request.company, question=request.query)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post(
