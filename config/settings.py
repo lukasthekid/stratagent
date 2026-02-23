@@ -47,6 +47,13 @@ class Settings(BaseSettings):
 
     # CORS (comma-separated list, e.g. "http://localhost:3000,https://app.example.com")
     cors_origins: str = "*"
+    #MLFLow settings
+    mlflow_uri:str = "http://localhost:5000"
+    mlflow_experiment_name:str = "CrewAI - StratAgent"
+
+    # Rate limit retry: max attempts, default wait when API doesn't specify
+    llm_rate_limit_max_retries: int = 5
+    llm_rate_limit_default_wait_seconds: float = 5.0
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -54,10 +61,6 @@ class Settings(BaseSettings):
         if self.cors_origins.strip() == "*":
             return ["*"]
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
-
-    # MLflow experiment tracking (logs each crew run)
-    mlflow_tracking_uri: str = "file:./mlruns"
-    mlflow_experiment_name: str = "stratagent-crew"
 
     # Environment
     env: str = "development"

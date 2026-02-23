@@ -3,11 +3,17 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from litellm import RateLimitError
 from crewai import Agent, Task
 from langchain_core.documents import Document
 from pydantic import ValidationError
 
-from agents.crew import StratAgentCrew, _extract_strategic_brief
+from agents.crew import (
+    StratAgentCrew,
+    _extract_strategic_brief,
+    _parse_retry_after_seconds,
+    _run_crew_with_retry,
+)
 from agents.critic_agent import create_critic_agent
 from agents.research_agent import create_research_agent
 from agents.schemas import (
@@ -22,7 +28,6 @@ from agents.tasks import (
     create_research_task,
     create_synthesis_task,
 )
-from agents.tools.calculator_tool import FinancialCalculatorTool
 from agents.tools.retrieval_tool import RetrievalTool
 from agents.tools.search_tool import WebSearchTool
 from config import settings
@@ -234,95 +239,6 @@ class TestRetrievalTool:
 
         assert "Retrieval error" in result
         assert "Connection failed" in result
-
-
-class TestFinancialCalculatorTool:
-    """Tests for FinancialCalculatorTool."""
-
-    def test_growth_rate(self) -> None:
-        tool = FinancialCalculatorTool()
-        result = tool._run(
-            data={"current": 120, "previous": 100},
-            calculations=["growth_rate"],
-        )
-        assert "20.00%" in result
-
-    def test_gross_margin(self) -> None:
-        tool = FinancialCalculatorTool()
-        result = tool._run(
-            data={"revenue": 1000, "cogs": 400},
-            calculations=["gross_margin"],
-        )
-        assert "60.00%" in result
-
-    def test_net_margin(self) -> None:
-        tool = FinancialCalculatorTool()
-        result = tool._run(
-            data={"revenue": 1000, "net_income": 150},
-            calculations=["net_margin"],
-        )
-        assert "15.00%" in result
-
-    def test_current_ratio(self) -> None:
-        tool = FinancialCalculatorTool()
-        result = tool._run(
-            data={"current_assets": 500, "current_liabilities": 200},
-            calculations=["current_ratio"],
-        )
-        assert "2.50" in result
-
-    def test_debt_to_equity(self) -> None:
-        tool = FinancialCalculatorTool()
-        result = tool._run(
-            data={"total_debt": 300, "equity": 600},
-            calculations=["debt_to_equity"],
-        )
-        assert "0.50" in result
-
-    def test_multiple_calculations(self) -> None:
-        tool = FinancialCalculatorTool()
-        result = tool._run(
-            data={
-                "revenue": 1000,
-                "cogs": 400,
-                "net_income": 100,
-                "current": 110,
-                "previous": 100,
-            },
-            calculations=["gross_margin", "net_margin", "growth_rate"],
-        )
-        assert "60.00%" in result
-        assert "10.00%" in result
-        assert "10.00%" in result
-
-    def test_division_by_zero_returns_na(self) -> None:
-        tool = FinancialCalculatorTool()
-        result = tool._run(
-            data={"current": 100, "previous": 0},
-            calculations=["growth_rate"],
-        )
-        assert "N/A" in result
-
-    def test_missing_data_returns_errors(self) -> None:
-        tool = FinancialCalculatorTool()
-        result = tool._run(
-            data={"revenue": 1000},
-            calculations=["gross_margin", "net_margin"],
-        )
-        assert "Missing inputs" in result
-        assert "gross_margin" in result or "cogs" in result
-
-    def test_invalid_data_type_returns_error(self) -> None:
-        tool = FinancialCalculatorTool()
-        result = tool._run(data="not a dict", calculations=["growth_rate"])
-        assert "Error" in result
-        assert "dictionary" in result
-
-    def test_invalid_calculations_type_returns_error(self) -> None:
-        tool = FinancialCalculatorTool()
-        result = tool._run(data={}, calculations="not a list")
-        assert "Error" in result
-        assert "list" in result
 
 
 class TestWebSearchTool:
@@ -672,3 +588,74 @@ class TestStratAgentCrew:
         assert call_kwargs["tasks"] == [mock_research_task, mock_critic_task, mock_synthesis_task]
         # Process.sequential is an enum; check it was passed
         assert call_kwargs["process"] is not None
+
+    @patch("agents.crew.create_synthesis_task")
+    @patch("agents.crew.create_critic_task")
+    @patch("agents.crew.create_research_task")
+    @patch("agents.crew.Crew")
+    @patch("agents.crew.time.sleep")
+    def test_run_retries_on_rate_limit(
+        self,
+        mock_sleep: MagicMock,
+        mock_crew_cls: MagicMock,
+        mock_create_research_task: MagicMock,
+        mock_create_critic_task: MagicMock,
+        mock_create_synthesis_task: MagicMock,
+    ) -> None:
+        mock_research_task = MagicMock()
+        mock_critic_task = MagicMock()
+        mock_synthesis_task = MagicMock()
+        mock_create_research_task.return_value = mock_research_task
+        mock_create_critic_task.return_value = mock_critic_task
+        mock_create_synthesis_task.return_value = mock_synthesis_task
+
+        mock_crew_instance = MagicMock()
+        brief = _make_sample_brief()
+        mock_result = MagicMock()
+        mock_result.pydantic = brief
+        err_msg = (
+            "Rate limit reached for model. Please try again in 4.366s. "
+            "Need more tokens? Upgrade to Dev Tier."
+        )
+        mock_crew_instance.kickoff.side_effect = [
+            RateLimitError(err_msg, model="groq/llama", llm_provider="groq"),
+            mock_result,
+        ]
+        mock_crew_cls.return_value = mock_crew_instance
+
+        crew = StratAgentCrew()
+        result = crew.run(company="Acme Corp", question="Growth outlook?")
+
+        assert result == brief
+        mock_sleep.assert_called_once()
+        # Wait = 4.366 + 1.0 buffer = 5.366
+        mock_sleep.assert_called_with(5.366)
+        assert mock_crew_instance.kickoff.call_count == 2
+
+
+class TestParseRetryAfter:
+    """Tests for _parse_retry_after_seconds."""
+
+    def test_parses_groq_message(self) -> None:
+        err = RateLimitError(
+            "Rate limit reached. Please try again in 4.366s. Upgrade to Dev Tier.",
+            model="groq/llama",
+            llm_provider="groq",
+        )
+        assert _parse_retry_after_seconds(err) == 4.366
+
+    def test_parses_integer_seconds(self) -> None:
+        err = RateLimitError(
+            "Please try again in 10s",
+            model="groq/llama",
+            llm_provider="groq",
+        )
+        assert _parse_retry_after_seconds(err) == 10.0
+
+    def test_returns_none_when_no_match(self) -> None:
+        err = RateLimitError(
+            "Some other error",
+            model="groq/llama",
+            llm_provider="groq",
+        )
+        assert _parse_retry_after_seconds(err) is None

@@ -5860,7 +5860,7 @@ requires-dist = [
     { name = "langchain-pinecone", specifier = ">=0.2.13" },
     { name = "litellm", specifier = ">=1.81.14" },
     { name = "loguru", specifier = ">=0.7.0" },
-    { name = "mlflow", specifier = ">=2.17.0" },
+    { name = "mlflow", specifier = ">=3.10.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0.0" },
     { name = "pinecone", specifier = ">=5.0.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.0.0" },
