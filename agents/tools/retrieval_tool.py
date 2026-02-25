@@ -7,17 +7,12 @@ from retrieval import retrieve_with_rerank
 
 
 class RetrievalInput(BaseModel):
-    query: str = Field(description="The search query to find relevant documents")
+    query: str = Field(description="Search query")
 
 
 class RetrievalTool(BaseTool):
     name: str = "Document Retrieval Tool"
-    description: str = """
-    Use this tool to search and retrieve relevant information from the internal document database.
-    This includes annual reports, 10-K filings, earnings calls, and industry reports.
-    Always use this before making any claims about a company's financials or strategy.
-    Input a specific, focused query for best results.
-    """
+    description: str = "Search internal docs (10-K, earnings, reports). Use before claiming financials."
     args_schema: type[BaseModel] = RetrievalInput
 
     def _run(self, query: str) -> str:
@@ -36,8 +31,12 @@ class RetrievalTool(BaseTool):
             return "No relevant documents found. Try broadening your query."
 
         formatted_results = []
+        max_chunk_len = 300
         for i, doc in enumerate(results, 1):
             source = doc.metadata.get("source", "Unknown")
-            formatted_results.append(f"[{i}] Source: {source}\n{doc.page_content}")
+            content = doc.page_content
+            if len(content) > max_chunk_len:
+                content = content[:max_chunk_len] + "..."
+            formatted_results.append(f"[{i}] Source: {source}\n{content}")
 
         return "\n---\n".join(formatted_results)

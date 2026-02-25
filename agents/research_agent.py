@@ -10,25 +10,18 @@ def create_research_agent() -> Agent:
         model=settings.llm_model,
         api_key=settings.groq_api_key,
         temperature=0.0,
-        max_tokens=None,
+        max_tokens=settings.max_tokens,
         timeout=None,
+        max_retries=settings.llm_rate_limit_max_retries,
     )
 
     return Agent(
         role="Senior Research Analyst",
-        goal=(
-            "Gather comprehensive, verified information about a company's strategic position, "
-            "market context, and recent developments. Every claim must be backed by a source."
-        ),
-        backstory=(
-            "You are a seasoned research analyst with 15 years of experience at top-tier "
-            "consulting firms. You have a reputation for never presenting unverified information. "
-            "You always cite your sources and flag when information is uncertain or outdated. "
-            "You focus on finding information that is strategically relevant, not just factually interesting."
-        ),
+        goal="Gather verified strategic info. Cite sources.",
+        backstory="Research analyst. Cite sources, flag uncertainty.",
         tools=[RetrievalTool(), WebSearchTool()],
         llm=llm,
         verbose=True,
-        max_iter=2,  # Prevents infinite tool loops
+        max_iter=6,
         memory=True,
     )

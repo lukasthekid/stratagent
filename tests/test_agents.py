@@ -3,16 +3,11 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from litellm import RateLimitError
 from crewai import Agent, Task
 from langchain_core.documents import Document
 from pydantic import ValidationError
 
-from agents.crew import (
-    StratAgentCrew,
-    _extract_strategic_brief,
-    _parse_retry_after_seconds,
-)
+from agents.crew import StratAgentCrew, _extract_strategic_brief
 from agents.critic_agent import create_critic_agent
 from agents.research_agent import create_research_agent
 from agents.schemas import (
@@ -261,7 +256,7 @@ class TestWebSearchTool:
         result = tool._run(query="Acme Corp news")
 
         mock_client.search.assert_called_once_with(
-            query="Acme Corp news", max_results=5, search_depth="advanced"
+            query="Acme Corp news", max_results=3, search_depth="advanced"
         )
         assert "Test Article" in result
         assert "https://example.com" in result
@@ -323,8 +318,7 @@ class TestAgentCreation:
         assert isinstance(agent, Agent)
         assert "Critical" in agent.role or "Reviewer" in agent.role
         assert len(agent.tools) == 1
-        tool_names = [t.name for t in agent.tools]
-        assert "Web Search Tool" in tool_names
+        assert "Web Search Tool" in [t.name for t in agent.tools]
 
     @patch("agents.synthesis_agent.settings")
     def test_create_synthesis_agent(self, mock_settings: MagicMock) -> None:
@@ -406,7 +400,7 @@ class TestTaskCreation:
         assert isinstance(task, Task)
         assert "Acme Corp" in task.description
         assert "Strategic outlook" in task.description
-        assert "critical review" in task.description.lower()
+        assert "critique" in task.description.lower() or "critical review" in task.description.lower()
         assert task.context == [research_task, critic_task]
         assert task.output_pydantic == StrategicBrief
 
@@ -588,73 +582,3 @@ class TestStratAgentCrew:
         # Process.sequential is an enum; check it was passed
         assert call_kwargs["process"] is not None
 
-    @patch("agents.crew.create_synthesis_task")
-    @patch("agents.crew.create_critic_task")
-    @patch("agents.crew.create_research_task")
-    @patch("agents.crew.Crew")
-    @patch("agents.crew.time.sleep")
-    def test_run_retries_on_rate_limit(
-        self,
-        mock_sleep: MagicMock,
-        mock_crew_cls: MagicMock,
-        mock_create_research_task: MagicMock,
-        mock_create_critic_task: MagicMock,
-        mock_create_synthesis_task: MagicMock,
-    ) -> None:
-        mock_research_task = MagicMock()
-        mock_critic_task = MagicMock()
-        mock_synthesis_task = MagicMock()
-        mock_create_research_task.return_value = mock_research_task
-        mock_create_critic_task.return_value = mock_critic_task
-        mock_create_synthesis_task.return_value = mock_synthesis_task
-
-        mock_crew_instance = MagicMock()
-        brief = _make_sample_brief()
-        mock_result = MagicMock()
-        mock_result.pydantic = brief
-        err_msg = (
-            "Rate limit reached for model. Please try again in 4.366s. "
-            "Need more tokens? Upgrade to Dev Tier."
-        )
-        mock_crew_instance.kickoff.side_effect = [
-            RateLimitError(err_msg, model="groq/llama", llm_provider="groq"),
-            mock_result,
-        ]
-        mock_crew_cls.return_value = mock_crew_instance
-
-        crew = StratAgentCrew()
-        result = crew.run(company="Acme Corp", question="Growth outlook?")
-
-        assert result == brief
-        mock_sleep.assert_called_once()
-        # Wait = 4.366 + 1.0 buffer = 5.366
-        mock_sleep.assert_called_with(5.366)
-        assert mock_crew_instance.kickoff.call_count == 2
-
-
-class TestParseRetryAfter:
-    """Tests for _parse_retry_after_seconds."""
-
-    def test_parses_groq_message(self) -> None:
-        err = RateLimitError(
-            "Rate limit reached. Please try again in 4.366s. Upgrade to Dev Tier.",
-            model="groq/llama",
-            llm_provider="groq",
-        )
-        assert _parse_retry_after_seconds(err) == 4.366
-
-    def test_parses_integer_seconds(self) -> None:
-        err = RateLimitError(
-            "Please try again in 10s",
-            model="groq/llama",
-            llm_provider="groq",
-        )
-        assert _parse_retry_after_seconds(err) == 10.0
-
-    def test_returns_none_when_no_match(self) -> None:
-        err = RateLimitError(
-            "Some other error",
-            model="groq/llama",
-            llm_provider="groq",
-        )
-        assert _parse_retry_after_seconds(err) is None

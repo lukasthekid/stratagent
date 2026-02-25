@@ -21,7 +21,7 @@ def _get_reranker() -> FlagReranker:
     if _reranker is None:
         with _reranker_lock:
             if _reranker is None:  # double-checked locking
-                _reranker = FlagReranker(settings.reranker_model, use_fp16=True)
+                _reranker = FlagReranker(settings.reranker_model, use_fp16=False)
     return _reranker
 
 

@@ -1,5 +1,4 @@
 import logging
-import re
 import threading
 import time
 from collections.abc import Callable
@@ -12,7 +11,6 @@ from crewai.hooks import (
     unregister_before_tool_call_hook,
 )
 import mlflow
-from litellm import RateLimitError
 from agents.critic_agent import create_critic_agent
 from agents.research_agent import create_research_agent
 from agents.schemas import StrategicBrief
@@ -20,7 +18,20 @@ from agents.synthesis_agent import create_synthesis_agent
 from agents.tasks import create_research_task, create_synthesis_task, create_critic_task
 from config import settings
 
+try:
+    from litellm import RateLimitError
+except ImportError:
+    RateLimitError = Exception  # fallback: will not match, retry loop effectively disabled
+
 logger = logging.getLogger(__name__)
+
+
+def _is_rate_limit_error(exc: BaseException) -> bool:
+    """True if exception is a rate limit error (type or message)."""
+    if isinstance(exc, RateLimitError):
+        return True
+    msg = str(exc).lower()
+    return "rate limit" in msg or "rate_limit_exceeded" in msg
 
 # Thread-local storage for progress callback (used by tool hooks during crew execution)
 _progress_tls: threading.local = threading.local()
@@ -48,46 +59,6 @@ def _tool_before_hook(context) -> None:
 def _tool_after_hook(context) -> None:
     """After tool call: clear current_tool."""
     _update_progress({"current_tool": None})
-
-
-def _parse_retry_after_seconds(error: RateLimitError) -> float | None:
-    """Extract 'Please try again in X.XXs' from Groq/LiteLLM rate limit error message."""
-    msg = str(error)
-    match = re.search(r"Please try again in (\d+(?:\.\d+)?)\s*s", msg, re.IGNORECASE)
-    if match:
-        return float(match.group(1))
-    if hasattr(error, "retry_after") and error.retry_after is not None:
-        return float(error.retry_after)
-    return None
-
-
-def _run_crew_with_retry(crew: Crew, inputs: dict):
-    """Run crew.kickoff with retry on rate limit errors."""
-    last_error = None
-    for attempt in range(1, settings.llm_rate_limit_max_retries + 1):
-        try:
-            return crew.kickoff(inputs=inputs)
-        except RateLimitError as e:
-            last_error = e
-            base_wait = _parse_retry_after_seconds(e) or settings.llm_rate_limit_default_wait_seconds
-            wait = base_wait + 1.0  # Add 1s buffer to avoid immediate re-hit
-            if attempt < settings.llm_rate_limit_max_retries:
-                logger.warning(
-                    "Rate limit hit (attempt %d/%d), waiting %.1fs before retry: %s",
-                    attempt,
-                    settings.llm_rate_limit_max_retries,
-                    wait,
-                    str(e)[:200],
-                )
-                time.sleep(wait)
-            else:
-                logger.error(
-                    "Rate limit exceeded after %d attempts. Last error: %s",
-                    settings.llm_rate_limit_max_retries,
-                    str(e)[:300],
-                )
-                raise
-    raise last_error  # type: ignore[misc]
 
 
 def _extract_strategic_brief(result) -> StrategicBrief:
@@ -119,7 +90,7 @@ def _extract_strategic_brief(result) -> StrategicBrief:
 _PHASES = ("research", "critic", "synthesis")
 _AGENT_NAMES = {
     "Senior Research Analyst": "Research",
-    "Critical Research Reviewer": "Critic",
+    "Critical Reviewer": "Critic",
     "Principal Strategy Consultant": "Synthesis",
 }
 
@@ -138,7 +109,7 @@ def _make_step_callback(on_progress: Callable[[dict], None]):
             # Infer phase from agent role
             role_to_phase = {
                 "Senior Research Analyst": "research",
-                "Critical Research Reviewer": "critic",
+                "Critical Reviewer": "critic",
                 "Principal Strategy Consultant": "synthesis",
             }
             phase = role_to_phase.get(agent_role, "research")
@@ -219,7 +190,7 @@ class StratAgentCrew:
                 tasks=[research_task, critic_task, synthesis_task],
                 process=Process.sequential,
                 verbose=True,
-                memory=True,
+                memory=False,
                 embedder={
                     "provider": "google-generativeai",
                     "config": {
@@ -232,8 +203,31 @@ class StratAgentCrew:
                 task_callback=task_cb,
             )
 
-            result = _run_crew_with_retry(crew, {"company": company, "question": question})
-            brief = _extract_strategic_brief(result)
+            last_exc: BaseException | None = None
+            for attempt in range(settings.llm_rate_limit_max_retries + 1):
+                try:
+                    result = crew.kickoff(inputs={"company": company, "question": question})
+                    brief = _extract_strategic_brief(result)
+                    break
+                except Exception as e:
+                    last_exc = e
+                    if _is_rate_limit_error(e) and attempt < settings.llm_rate_limit_max_retries:
+                        wait_s = getattr(e, "retry_after", None)
+                        if wait_s is None:
+                            wait_s = settings.llm_rate_limit_default_wait_seconds
+                        logger.warning(
+                            "Rate limit hit (attempt %d/%d), waiting %.1fs before retry: %s",
+                            attempt + 1,
+                            settings.llm_rate_limit_max_retries + 1,
+                            wait_s,
+                            e,
+                        )
+                        time.sleep(wait_s)
+                    else:
+                        raise
+            else:
+                if last_exc is not None:
+                    raise last_exc
 
             logger.info("Analysis complete for %s", company)
             return brief

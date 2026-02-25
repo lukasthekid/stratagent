@@ -26,11 +26,11 @@ router = APIRouter(prefix="/analysis", tags=["analysis"])
     "Returns a StrategicBrief with executive summary, SWOT, risks, recommendations, and caveats. "
     "Use POST /analysis/analyze for async (non-blocking) analysis.",
 )
-def analyse(request: AnalyseRequest) -> StrategicBrief:
+def analyse(request: AnalysisRequest) -> StrategicBrief:
     """Run full agent analysis synchronously. Blocks until complete."""
     try:
         crew = StratAgentCrew()
-        return crew.run(company=request.company, question=request.query)
+        return crew.run(company=request.company, question=request.question)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

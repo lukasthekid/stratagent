@@ -23,7 +23,7 @@ def test_health_check() -> None:
 
 
 def test_analyse_validates_request_body() -> None:
-    """Test /analysis/analyze-test requires company and query."""
+    """Test /analysis/analyze-test requires company and question."""
     response = client.post("/analysis/analyze-test", json={})
     assert response.status_code == 422  # Validation error
 
@@ -55,7 +55,7 @@ def test_analyse_accepts_valid_request() -> None:
         MockCrew.return_value.run.return_value = mock_brief
         response = client.post(
             "/analysis/analyze-test",
-            json={"company": "Acme Corp", "query": "What are the growth opportunities?"},
+            json={"company": "Acme Corp", "question": "What are the growth opportunities?"},
         )
     assert response.status_code == 200
     assert response.json()["company"] == "Acme Corp"

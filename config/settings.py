@@ -26,20 +26,21 @@ class Settings(BaseSettings):
 
     groq_api_key: str = "grq_xxxxxxx"
     pinecone_api_key: str = "pc_xxxxxxx"
-    gemini_api_key:str = "gemini_xxxxxxx"
+    gemini_api_key: str = "gemini_xxxxxxx"
     pinecone_index_name: str = "stratagent"
-    tavily_api_key:str = "tvly-xxxxxxxxx"
+    tavily_api_key: str = "tvly-xxxxxxxxx"
     embedding_model: str = "llama-text-embed-v2"
     embedding_dimensions: int = 1024
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
-    llm_model:str="groq/meta-llama/llama-4-scout-17b-16e-instruct"
+    llm_model: str = "groq/groq/compound"
     # Retrieval tuning: vector search candidates, final reranked count
-    retrieval_top_k: int = 20
-    rerank_top_k: int = 5
+    retrieval_top_k: int = 12
+    rerank_top_k: int = 3
     retriever_threshold: float = 0.0
     reranker_threshold: float = 0.0
     # Chunk size for document ingestion (characters)
-    chunk_size: int = 512
+    chunk_size: int = 384
+    max_tokens: int = 2048
     # Upsert tuning: embedding batch (HuggingFace), Pinecone upsert batch, pool threads
     embedding_batch_size: int = 64
     upsert_batch_size: int = 64
@@ -47,9 +48,9 @@ class Settings(BaseSettings):
 
     # CORS (comma-separated list, e.g. "http://localhost:3000,https://app.example.com")
     cors_origins: str = "*"
-    #MLFLow settings
-    mlflow_uri:str = "http://localhost:5000"
-    mlflow_experiment_name:str = "CrewAI - StratAgent"
+    # MLFLow settings
+    mlflow_uri: str = "http://localhost:5000"
+    mlflow_experiment_name: str = "CrewAI - StratAgent"
 
     # Rate limit retry: max attempts, default wait when API doesn't specify
     llm_rate_limit_max_retries: int = 5

@@ -5,8 +5,11 @@ services:
       dockerfile: infra/docker/Dockerfile
     ports:
       - "8000:8000"
+    env_file: ../../.env
     environment:
       - ENV=development
+      - API_RELOAD=false
+    restart: unless-stopped
 
   frontend:
     build:
@@ -14,7 +17,9 @@ services:
       dockerfile: infra/docker/Dockerfile.frontend
     ports:
       - "8501:8501"
+    env_file: ../../.env
     environment:
       - API_URL=http://api:8000
     depends_on:
       - api
+    restart: unless-stopped
