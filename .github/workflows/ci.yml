@@ -24,4 +24,6 @@ jobs:
         run: uv run ruff check .
 
       - name: Test
+        env:
+          MLFLOW_URI: file:./mlruns
         run: uv run pytest tests/ -v
