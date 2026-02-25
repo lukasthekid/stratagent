@@ -1,0 +1,25 @@
+flowchart LR
+    subgraph Input
+        PDF[PDF / URL]
+    end
+    subgraph Ingestion
+        Load[Load & Chunk]
+        Embed[Embed]
+        Pinecone[(Pinecone)]
+    end
+    subgraph RAG
+        Vector[Vector Search]
+        Rerank[Rerank]
+    end
+    subgraph Agents
+        Research[Research Agent]
+        Critic[Critic Agent]
+        Synthesis[Synthesis Agent]
+    end
+    subgraph Output
+        Brief[StrategicBrief]
+    end
+    PDF --> Load --> Embed --> Pinecone
+    Pinecone --> Vector --> Rerank
+    Rerank --> Research
+    Research --> Critic --> Synthesis --> Brief
