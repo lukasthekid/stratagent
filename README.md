@@ -1,6 +1,7 @@
-# StratAgent
-
-![StratAgent Logo](public/stratagent.png)
+<h1>
+  <img src="public/stratagent.png" alt="StratAgent Logo" width="50" align="left" style="margin-right: 10px;" />
+  StratAgent
+</h1>
 
 **Multi-Agent RAG System for Strategic Business Analysis**
 
