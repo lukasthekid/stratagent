@@ -1,4 +1,5 @@
 import logging
+import re
 import threading
 import time
 from collections.abc import Callable
@@ -36,6 +37,9 @@ def _is_rate_limit_error(exc: BaseException) -> bool:
 # Thread-local storage for progress callback (used by tool hooks during crew execution)
 _progress_tls: threading.local = threading.local()
 
+# Thread-local storage for sources collected from tool outputs (label, url)
+_sources_tls: threading.local = threading.local()
+
 #mlflow config
 mlflow.crewai.autolog()
 mlflow.set_tracking_uri(settings.mlflow_uri)
@@ -56,9 +60,80 @@ def _tool_before_hook(context) -> None:
     _update_progress({"current_tool": context.tool_name})
 
 
+def _parse_sources_from_tool_result(tool_name: str, tool_input: dict, tool_result: str) -> list[tuple[str, str | None]]:
+    """Extract (label, url) pairs from tool output. url is None for non-URL sources (e.g. file paths)."""
+    sources: list[tuple[str, str | None]] = []
+    if not tool_result:
+        return sources
+
+    query = tool_input.get("query", "") if isinstance(tool_input, dict) else str(tool_input)
+
+    if tool_name == "Web Search Tool":
+        # Format: "Title: X\nURL: https://...\nContent: ...\n---\n"
+        for block in tool_result.split("\n---\n"):
+            title = ""
+            url = None
+            for line in block.split("\n"):
+                if line.startswith("Title:"):
+                    title = line[6:].strip() or query
+                elif line.startswith("URL:"):
+                    url_match = re.search(r"https?://[^\s]+", line)
+                    if url_match:
+                        url = url_match.group(0).rstrip(")")
+            if title or url:
+                label = title or (url if url else query)
+                sources.append((label, url))
+
+    elif tool_name == "Document Retrieval Tool":
+        # Format: "[1] Source: path_or_url\nLabel: display text\ncontent\n---\n"
+        for block in tool_result.split("\n---\n"):
+            source_match = re.search(r"\[\d+\]\s*Source:\s*(.+?)(?:\n|$)", block)
+            label_match = re.search(r"Label:\s*(.+?)(?:\n|$)", block)
+            if source_match:
+                raw = source_match.group(1).strip()
+                is_url = raw.startswith(("http://", "https://"))
+                label = label_match.group(1).strip() if label_match else raw
+                sources.append((label, raw if is_url else None))
+
+    return sources
+
+
 def _tool_after_hook(context) -> None:
-    """After tool call: clear current_tool."""
+    """After tool call: clear current_tool and collect sources for hyperlinks."""
     _update_progress({"current_tool": None})
+    tool_result = getattr(context, "tool_result", None)
+    if tool_result:
+        parsed = _parse_sources_from_tool_result(
+            context.tool_name,
+            getattr(context, "tool_input", {}),
+            tool_result,
+        )
+        if parsed:
+            sources_list = getattr(_sources_tls, "sources", None)
+            if sources_list is None:
+                _sources_tls.sources = []
+            _sources_tls.sources.extend(parsed)
+
+
+def _merge_sources_into_brief(brief: StrategicBrief) -> StrategicBrief:
+    """Replace research_findings.sources with markdown hyperlinks from collected tool outputs."""
+    collected = getattr(_sources_tls, "sources", None)
+    if not collected:
+        return brief
+    formatted = []
+    seen = set()
+    for label, url in collected:
+        key = (label, url) if url else label
+        if key in seen:
+            continue
+        seen.add(key)
+        if url:
+            formatted.append(f"[{label}]({url})")
+        else:
+            formatted.append(label)
+    if formatted:
+        brief.research_findings.sources = formatted
+    return brief
 
 
 def _extract_strategic_brief(result) -> StrategicBrief:
@@ -169,9 +244,10 @@ class StratAgentCrew:
             self.synthesis_agent, company, question, research_task, critic_task
         )
 
-        # Set up progress reporting
+        # Set up progress reporting and source collection (hooks always needed for hyperlinks)
         step_cb = None
         task_cb = None
+        _sources_tls.sources = []
         if on_progress:
             _progress_tls.callback = on_progress
             on_progress({
@@ -181,8 +257,8 @@ class StratAgentCrew:
             })
             step_cb = _make_step_callback(on_progress)
             task_cb = _make_task_callback(on_progress)
-            register_before_tool_call_hook(_tool_before_hook)
-            register_after_tool_call_hook(_tool_after_hook)
+        register_before_tool_call_hook(_tool_before_hook)
+        register_after_tool_call_hook(_tool_after_hook)
 
         try:
             crew = Crew(
@@ -208,6 +284,7 @@ class StratAgentCrew:
                 try:
                     result = crew.kickoff(inputs={"company": company, "question": question})
                     brief = _extract_strategic_brief(result)
+                    brief = _merge_sources_into_brief(brief)
                     break
                 except Exception as e:
                     last_exc = e
@@ -232,7 +309,7 @@ class StratAgentCrew:
             logger.info("Analysis complete for %s", company)
             return brief
         finally:
+            unregister_before_tool_call_hook(_tool_before_hook)
+            unregister_after_tool_call_hook(_tool_after_hook)
             if on_progress:
-                unregister_before_tool_call_hook(_tool_before_hook)
-                unregister_after_tool_call_hook(_tool_after_hook)
                 _progress_tls.callback = None
